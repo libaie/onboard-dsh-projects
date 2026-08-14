@@ -104,7 +104,7 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 1. 冻结跨项目契约后才派发；根因、范围、验收证据已固定时可直接派发修复。
 2. `enqueue-dispatch`（modelClass=economy|balanced|frontier；economy=有界常规，balanced=普通单项目工程，frontier=跨项目契约/高风险正确性/根因不明）。
 3. `start-next-dispatch`（取队列头，写入 leaseId）。leaseId = 本次派发的幂等标识。
-4. 用 `workflow` 工具执行：每个项目泳道一个 phase、一个 agent，种子含仓库根/绑定/索引路径与只读姿态。`modelTiers` 中对应档位为 `null` 时**不传 model 覆盖**（会话默认模型）；绝不凭空发明 model 名。`dispatchReturnMode=durable` 时改用后台子代理并以完成通知为回执；`foreground` 时直接等待 workflow 返回。
+4. 用 `workflow` 工具执行：每个项目泳道一个 phase、一个 agent，种子含仓库根/绑定/索引路径与只读姿态。**模型覆盖必须作为 `agent()` 的 per-agent opts 传入**（`agent(prompt, { label, phase, provider, model })`，档位为 `null` 时省略 provider/model 两项 = 会话默认模型）；本部署的 workflow 引擎只路由 per-agent opts，`meta.phases` 的 provider/model 字段仅作展示元数据、不参与路由（2026-08 实测）。绝不凭空发明 model 名。`dispatchReturnMode=durable` 时改用后台子代理并以完成通知为回执；`foreground` 时直接等待 workflow 返回。
    - **本部署默认分层**（中控模板出厂值，可用 `set-model-tier` 调整）：`economy` → provider `deepseek-official` + model `deepseek-v4-flash`；`balanced` 与 `frontier` → provider `deepseek-official` + model `deepseek-v4-pro`。这是本 DSH 部署注册的两个真实模型；分层只有在名字能在 `llm` 服务解析时才生效。
 5. 收齐封闭 JSON 结果后，对精确结果载荷计算 evidenceHash（SHA-256），`record-dispatch-outcome` 写入清单，再经 `chain-store.ps1 -Action Put` 追加 CHAIN 终态记录（需 `-ConfirmTerminal`）。
 6. 确定性失败时：把 `{problem, rejectedMechanism, evidence}` 写入 `state/experience-index.json`（经 `dsh-state.ps1`），并改用下一个允许的策略；同一机制绝不静默重试。
