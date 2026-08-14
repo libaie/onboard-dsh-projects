@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "generator": "onboard-dsh-projects",
+  "templateVersion": 1,
+  "controllerName": __CONTROLLER_NAME_JSON__,
+  "controllerAgentId": null,
+  "projectBindings": [],
+  "dispatchQueues": [],
+  "modelTiers": {
+    "economy": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash"
+    },
+    "balanced": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-pro"
+    },
+    "frontier": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-pro"
+    }
+  },
+  "dispatchSeq": 0
+}
