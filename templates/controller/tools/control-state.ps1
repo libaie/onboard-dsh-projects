@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$ControllerRoot,
   [ValidateSet(
-    'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding',
+    'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding', 'remove-project',
     'enqueue-dispatch', 'start-next-dispatch', 'advance-dispatch',
     'record-dispatch-outcome', 'request-dispatch-cancel', 'retry-dispatch',
     'set-model-tier')]
@@ -167,6 +167,32 @@ function Invoke-Operation {
         }
       }
       if (-not $found) { return [pscustomobject]@{ Error='project-not-registered' } }
+      return $Manifest
+    }
+    'remove-project' {
+      if (-not (Test-ClosedKeys $Payload @('projectRoot', 'expectedEntryAgentId'))) { return $null }
+      if (-not (Test-NormalizedRoot ([string]$Payload.projectRoot))) { return [pscustomobject]@{ Error='invalid-project-root' } }
+      if ([string]::IsNullOrWhiteSpace([string]$Payload.expectedEntryAgentId) -or ([string]$Payload.expectedEntryAgentId).Length -gt 128) { return [pscustomobject]@{ Error='invalid-entry-agent-id' } }
+      $found = $false
+      $removedRepoId = $null
+      $kept = @()
+      foreach ($binding in @($Manifest.projectBindings)) {
+        if ([string]$binding.projectRoot -ieq [string]$Payload.projectRoot) {
+          $found = $true
+          if ([string]$binding.entryAgentId -cne [string]$Payload.expectedEntryAgentId) { return [pscustomobject]@{ Error='project-binding-conflict' } }
+          $removedRepoId = [string]$binding.repoId
+        }
+        else { $kept += $binding }
+      }
+      if (-not $found) { return [pscustomobject]@{ Error='project-not-registered' } }
+      $Manifest.projectBindings = $kept
+      if (-not [string]::IsNullOrWhiteSpace($removedRepoId)) {
+        $keptQueues = @()
+        foreach ($queue in @($Manifest.dispatchQueues)) {
+          if ([string]$queue.repoId -cne $removedRepoId) { $keptQueues += $queue }
+        }
+        $Manifest.dispatchQueues = $keptQueues
+      }
       return $Manifest
     }
     'enqueue-dispatch' {

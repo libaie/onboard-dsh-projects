@@ -97,7 +97,7 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 
 ### 派发队列与执行
 
-清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`、`set-controller-name`、`set-controller-session`（登记用户指定的中控交互会话 id，供 UI 定位中控会话）。
+清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`remove-project`（`{projectRoot, expectedEntryAgentId}` 与清单一致才移除，并同步删除该 repoId 的派发队列）、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`、`set-controller-name`、`set-controller-session`（登记用户指定的中控交互会话 id，供 UI 定位中控会话）。
 
 派发执行（中控代理职责）：
 
