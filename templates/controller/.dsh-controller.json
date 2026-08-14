@@ -4,6 +4,7 @@
   "templateVersion": 1,
   "controllerName": __CONTROLLER_NAME_JSON__,
   "controllerAgentId": null,
+  "controllerSessionId": null,
   "projectBindings": [],
   "dispatchQueues": [],
   "modelTiers": {

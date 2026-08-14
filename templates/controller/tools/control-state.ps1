@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$ControllerRoot,
   [ValidateSet(
-    'set-controller-agent', 'register-project', 'replace-project-binding',
+    'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding',
     'enqueue-dispatch', 'start-next-dispatch', 'advance-dispatch',
     'record-dispatch-outcome', 'request-dispatch-cancel', 'retry-dispatch',
     'set-model-tier')]
@@ -115,6 +115,25 @@ function Invoke-Operation {
         return [pscustomobject]@{ Error='controller-agent-conflict' }
       }
       $Manifest.controllerAgentId = [string]$Payload.agentId
+      return $Manifest
+    }
+    'clear-controller-agent' {
+      $Manifest.controllerAgentId = $null
+      return $Manifest
+    }
+    'set-controller-session' {
+      if (-not (Test-ClosedKeys $Payload @('sessionId'))) { return $null }
+      if ([string]::IsNullOrWhiteSpace([string]$Payload.sessionId) -or ([string]$Payload.sessionId).Length -gt 128 -or [string]$Payload.sessionId -notmatch '^session-[0-9a-f-]{20,64}$') { return [pscustomobject]@{ Error='invalid-session-id' } }
+      if (-not ($Manifest.PSObject.Properties.Name -contains 'controllerSessionId')) {
+        $Manifest | Add-Member -NotePropertyName 'controllerSessionId' -NotePropertyValue $null
+      }
+      $Manifest.controllerSessionId = [string]$Payload.sessionId
+      return $Manifest
+    }
+    'set-controller-name' {
+      if (-not (Test-ClosedKeys $Payload @('controllerName'))) { return $null }
+      if ([string]::IsNullOrWhiteSpace([string]$Payload.controllerName) -or ([string]$Payload.controllerName).Length -gt 80 -or [string]$Payload.controllerName -match '[\x00-\x1f\x7f/\\]') { return [pscustomobject]@{ Error='invalid-controller-name' } }
+      $Manifest.controllerName = [string]$Payload.controllerName
       return $Manifest
     }
     'register-project' {

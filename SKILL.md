@@ -12,11 +12,26 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 > | --- | --- |
 > | 已保存项目 | 工作区内 `projects/<repoId>/binding.json`（唯一状态源） |
 > | 项目绑定入口任务 | 持久后台子代理（`subagent` 工具，durable id，`send_message` 续作） |
-> | codebase-memory 索引 | `scripts/index-repo.ps1` 生成的轻量索引（structure/entrypoints/docs/glossary） |
+> | codebase-memory 索引 | `scripts/index-repo.ps1` 生成的轻量索引（structure/entrypoints/docs/glossary）；可选 `cbm_*` 原生图查询（见下「Codebase-Memory Bridge」） |
 > | 中控任务 | 持久中控子代理（读中控目录 `AGENTS.md`） |
 > | 派发与模型分层 | `workflow` 编排，按 `modelTiers` 配置覆盖 model |
 > | 耐久回执 | DSH 后台子代理完成通知（父代理自动收到） |
 > | 状态适配器 | `dsh-state.ps1` / `control-state.ps1` / `chain-store.ps1`（CAS + 哈希链） |
+
+## Codebase-Memory Bridge（可选增强）
+
+轻量索引（`scripts/index-repo.ps1`）覆盖只读核验所需的结构证据；需要**调用图级**探查（定义查找、调用方/被调用方、跨仓库路由匹配、数据流追踪、改动波及面）时，用 `codebase-memory` 的原生图索引。它在 DSH 中经动态 Cordis 插件桥（MCP → 原生工具）暴露，工具名前缀 `cbm_`：
+
+- `cbm_list_projects` / `cbm_index_status` — 已索引项目清单与状态
+- `cbm_explore` — 首选探查入口：一次返回符号源码（带行号）、调用方、同文件邻居
+- `cbm_search_graph` / `cbm_query_graph`（openCypher）/ `cbm_search_code` — 定义、图与文本检索
+- `cbm_trace_path` — calls / data_flow / cross_service 三种模式的路径追踪
+- `cbm_get_code_snippet` / `cbm_get_architecture` / `cbm_get_graph_schema` — 源码、架构聚类、图 schema
+- `cbm_index_repository` / `cbm_detect_changes` — 索引新仓库（含 `cross-repo-intelligence` 模式）与改动波及面
+- `cbm_manage_adr` / `cbm_ingest_traces` / `cbm_delete_project` — ADR、运行时轨迹、项目维护
+- `cbm_bridge_status` — 桥健康检查（server started/ready、已注册工具数、最近错误）
+
+约束：桥是**会话级**动态插件（MCP 服务端为 `codebase-memory-mcp.exe`，索引缓存经 `CBM_CACHE_DIR` 定位）。使用前先查 `cbm_bridge_status`；工具不存在或 `ready=false` 时回退到轻量索引并在结论中注明。`cbm_*` 结果只作探查证据，不取代 `binding.json`、`chain-store` 与中控清单的权威状态。
 
 ## Four-Quadrant Request Intake
 
@@ -82,7 +97,7 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 
 ### 派发队列与执行
 
-清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`。
+清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`、`set-controller-name`、`set-controller-session`（登记用户指定的中控交互会话 id，供 UI 定位中控会话）。
 
 派发执行（中控代理职责）：
 
