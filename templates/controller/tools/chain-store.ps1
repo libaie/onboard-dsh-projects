@@ -232,6 +232,7 @@ switch ($Action) {
     $after = Read-ChainFile $targetPath
     if ($after.Corrupt) { Write-Result 'corrupt' ([ordered]@{ reasonCode='chain-corrupt-after-write' }) 1 }
     $lastHash = Get-LineHash $line
+    Remove-Item -LiteralPath $CandidatePath -Force -ErrorAction SilentlyContinue
 
     if ($confirmTerminal) {
       $month = ([DateTime]::UtcNow).ToString('yyyy-MM')
