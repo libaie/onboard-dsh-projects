@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Codebase-Memory Bridge constraints: per-session activation and index-freshness verification (cbm_index_status vs live git HEAD; rebuild on drift) are now hard rules.
+
 ### Added
 
 - Prominent Dependencies section in README, SKILL.md, and getting-started (required/conditional/optional; session-persistence backend called out).
