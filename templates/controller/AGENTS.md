@@ -54,7 +54,10 @@ Violating a route is a protocol violation: report it, never work around it.
 ## Cost discipline
 
 - Rotate to a fresh controller session after a bounded batch of terminal CHAINs
-  (default 8); hand over with `set-controller-session`. Entry agents persist.
+  (default 8); hand over with `set-controller-session`. Entry agents are bound
+  to their durable parent session, so rotation includes the entry-agent reset
+  flow: fresh entry subagents plus `replace-project-binding` per project, then
+  verify zero mismatches.
 - Batch large dispatches outside the provider's peak pricing window; note the
   premium when an urgent dispatch runs on-peak.
 - Tiered execution by difficulty: `economy` for routine single-repo work,
