@@ -44,6 +44,20 @@ Do not preload `TASKS.md`, the full contract doc, or archive logs.
    index (`state/experience-index.json` via the dsh-state adapter) and pick the
    next allowed strategy; never retry the same mechanism silently.
 
+## External-write lane (Jenkins / Nacos / DB / Redis / SSH / HTTP changes)
+
+- Never execute external-write actions yourself. Route them: register the
+  capability (`register-capability`, pointer-only `secretRef`), enqueue with
+  `accessMode=external-write` + `capabilityRefs`, wait for the parent to run
+  `authorize-dispatch` (one pending authorization per queue), then
+  `start-next-dispatch` and run the lane with the
+  `templates/dispatch-external-write.md` seed.
+- `start-next-dispatch` refuses `authorization-pending` items; a denied
+  authorization terminates the dispatch as `canceled / authorizationDenied`.
+- If no matching capability is registered, stop and declare
+  `no-external-write-lane` to the user. The brake is the boundary between the
+  controller and a plain ops session: never bypass the lane.
+
 ## Memory discipline
 
 - MEMORY.md holds only bounded cross-project facts: frozen contracts, dispatch

@@ -17,6 +17,7 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 > | 派发与模型分层 | `workflow` 编排，按 `modelTiers` 配置覆盖 model |
 > | 耐久回执 | DSH 后台子代理完成通知（父代理自动收到） |
 > | 状态适配器 | `dsh-state.ps1` / `control-state.ps1` / `chain-store.ps1`（CAS + 哈希链） |
+> | 能力代理 / 外部核验（上游 capability-broker） | external-write 泳道：清单 `capabilities` 注册表 + 逐次 `authorize-dispatch` 授权 + 同一 CHAIN 记账与证据哈希 |
 
 ## Codebase-Memory Bridge（可选增强）
 
@@ -97,7 +98,7 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
 
 ### 派发队列与执行
 
-清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`remove-project`（`{projectRoot, expectedEntryAgentId}` 与清单一致才移除，并同步删除该 repoId 的派发队列）、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`、`set-controller-name`、`set-controller-session`（登记用户指定的中控交互会话 id，供 UI 定位中控会话）。
+清单经 `tools/control-state.ps1` 以 `Read → PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) → ApplyCandidate → Read` 协议变更。操作：`register-project`、`replace-project-binding`、`remove-project`（`{projectRoot, expectedEntryAgentId}` 与清单一致才移除，并同步删除该 repoId 的派发队列）、`enqueue-dispatch`、`start-next-dispatch`、`advance-dispatch`、`record-dispatch-outcome`、`request-dispatch-cancel`、`retry-dispatch`、`set-model-tier`、`set-controller-agent`、`set-controller-name`、`set-controller-session`（登记用户指定的中控交互会话 id，供 UI 定位中控会话）、`register-capability`、`remove-capability`、`authorize-dispatch`（见下「External-Write Lane」）。
 
 派发执行（中控代理职责）：
 
@@ -108,6 +109,16 @@ description: "DeepSeek Harness 多仓库工作流隔离：把每个仓库接入�
    - **本部署默认分层**（中控模板出厂值，可用 `set-model-tier` 调整）：`economy` → provider `deepseek-official` + model `deepseek-v4-flash`；`balanced` 与 `frontier` → provider `deepseek-official` + model `deepseek-v4-pro`。这是本 DSH 部署注册的两个真实模型；分层只有在名字能在 `llm` 服务解析时才生效。
 5. 收齐封闭 JSON 结果后，对精确结果载荷计算 evidenceHash（SHA-256），`record-dispatch-outcome` 写入清单，再经 `chain-store.ps1 -Action Put` 追加 CHAIN 终态记录（需 `-ConfirmTerminal`）。
 6. 确定性失败时：把 `{problem, rejectedMechanism, evidence}` 写入 `state/experience-index.json`（经 `dsh-state.ps1`），并改用下一个允许的策略；同一机制绝不静默重试。
+
+### External-Write Lane（外部写入的授权泳道）
+
+仓库外的写入动作——Jenkins 触发、Nacos/网关配置变更、MySQL/Redis 变更、SSH 运维、HTTP 端点的生产变更——**不得由中控或入口代理直接执行**，必须经本泳道：`register-capability` → `enqueue-dispatch(accessMode=external-write)` → 用户 `authorize-dispatch` → `start-next-dispatch` → workflow 泳道执行 → `record-dispatch-outcome` + CHAIN 终态。这与仓库写泳道共用同一套队列、CHAIN、经验索引。
+
+1. **能力注册表**：清单 `capabilities`（出厂空数组，旧清单缺省视为空）。`register-capability` 载荷：`{capId, kind, label, targets[], allowedOps[], secretRef}`。`kind` ∈ `jenkins|ssh|nacos|mysql|redis|http|k8s|generic`；`targets` 是封闭目标列表（如 `jenkins-root`、`ssh:172.16.116.128`、`mysql:tx_db`）；`allowedOps` 是允许的操作名集合；`secretRef` 只是凭据位置的指针（如 `env:JENKINS_TOKEN`），**绝不写入凭据本体**（payload 经 `Assert-NoSecrets` 拦截）。`remove-capability` 载荷 `{capId}`。
+2. **入队**：`enqueue-dispatch` 新增可选字段 `accessMode ∈ read|write|external-write`（默认 `write`）与 `capabilityRefs[]`、`authorizationRequired`。`accessMode=external-write` 时：`authorizationRequired` 必须为 `true`，`capabilityRefs` 非空且每个 capId 必须已注册，否则 `capability-not-registered`；任务的 `taskSpec` 必须包含 `verification`（前后状态/健康门禁证据要求）与 `rollback`（回退步骤）。
+3. **授权门禁**：`start-next-dispatch` 遇到 external-write 且 `authorization.status != granted` 时返回 `authorization-pending`，不得启动。`authorize-dispatch` 载荷 `{repoId, dispatchId, granted, grantRef?}`：只作用于该队列 pending 的**队头**；`granted=true` 写入 `{status: granted, grantRef, authorizedAtUtc}`（grantRef 记录用户批准的证据引用，如审批轮次/消息 id）；`granted=false` 把该派发从 pending 移除并写 `lastTerminal{resultState: canceled, authorizationDenied: true}`。**每个泳道同一时刻最多一个未决授权**；被拒即停，绝不换等价路径绕过。
+4. **执行**：泳道代理种子用 `templates/dispatch-external-write.md`；只允许触碰 taskSpec 声明的 target 与 allowedOps 交集，禁止凭据外泄；证据必须含变更前后状态与健康门禁结果；第一行返回与仓库派发同款的终态信封（chainId/dispatchId/resultState/failureClass/evidenceHash）。
+5. **无泳道即停（刹车）**：请求属于 external-write 但清单里没有匹配 capability，或用户拒绝授权时，中控必须停止并声明 `no-external-write-lane` / `authorization-denied`，把缺口反馈给用户（注册能力或重新授权），**绝不自己下场绕过泳道**。这条刹车是中控与非中控会话的分界线。
 
 ### CHAIN 与有界记忆
 
