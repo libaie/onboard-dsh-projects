@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Cost discipline: economy-first tiering, per-batch controller session rotation (default 8 terminal CHAINs), and off-peak batching guidance in SKILL.md and the controller template.
+
 ### Changed
 
 - Dispatch phases are now a closed, monotonic set (`dispatched -> in-progress -> evidence-collected`); backward or unknown transitions are rejected.

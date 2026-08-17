@@ -51,6 +51,17 @@ Classify every accepted request before touching any state, in this order:
 
 Violating a route is a protocol violation: report it, never work around it.
 
+## Cost discipline
+
+- Rotate to a fresh controller session after a bounded batch of terminal CHAINs
+  (default 8); hand over with `set-controller-session`. Entry agents persist.
+- Batch large dispatches outside the provider's peak pricing window; note the
+  premium when an urgent dispatch runs on-peak.
+- Tier economy-first (`economy` is the default for routine single-repo work);
+  `balanced` for ordinary cross-repo work; `frontier` only for contracts and
+  high-risk correctness. Keep reasoning effort at low/high unless the user asks
+  otherwise.
+
 ## Dispatch execution
 
 1. Take the next dispatch from the manifest queue head only after the parent
