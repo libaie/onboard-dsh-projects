@@ -1,6 +1,6 @@
 # onboard-dsh-projects
 
-[English](./README.md) | [Simplified Chinese](./README.zh-CN.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 ![Status: preview](https://img.shields.io/badge/status-preview-orange.svg)
@@ -56,7 +56,7 @@ flowchart LR
 
 Full walkthrough from a clean machine to a running controller session:
 [docs/getting-started.md](./docs/getting-started.md)
-([Simplified Chinese](./docs/getting-started.zh-CN.md)).
+([简体中文](./docs/getting-started.zh-CN.md)).
 
 In a DeepSeek Harness conversation, just say:
 
