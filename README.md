@@ -27,6 +27,9 @@ The scariest failure mode in AI-assisted coding isn't a weak model — it's cros
 
 - ✅ Per repository: one read-only verification → one snapshot index (structure / entrypoints / docs / glossary) → one long-lived entry subagent
 - ✅ Optional controller: dispatch queue state machine + hash-chained CHAIN records + three-tier model routing + bounded experience reuse
+- ✅ **External-write lane**: Jenkins / Nacos / DB / Redis / SSH changes go through a capability registry with per-dispatch user authorization and the same CHAIN accounting — with a no-lane brake so the controller never does ops work itself
+- ✅ **Goal ledger**: register, advance, and terminate goals in the manifest (`register-goal` / `advance-goal` / `terminal-goal`), linkable to a CHAIN
+- ✅ **Authoritative contract**: the SKILL.md section "Controller / Entry-Agent Contract" pins down responsibilities, boundaries, and the collaboration order for both sides — violations are reported, never silently worked around
 - ✅ Every piece of state is CAS-hash-verified; mutations must go through a `Read → Prepare → Apply → Read` protocol — no hand edits, no drift
 - ✅ Toolchain preflight, closed input parsing (rejects credentials, unsafe refs, duplicate conflicts); fails closed by default
 
@@ -84,9 +87,10 @@ entry agent, and return end-to-end evidence.
 
 - 🧩 **Four-quadrant intake protocol** — shared-known / user-known / agent-known / shared-unknown each get their own handling; no guessing, no interrogation
 - 🔒 **Read-only onboarding, writes authorized separately** — external repos are read-only by default; cloning, branch switches, and commits each require explicit authorization
-- 🎯 **Model routing** — ships preconfigured for this deployment's real models: `economy` → `deepseek-v4-flash`, `balanced`/`frontier` → `deepseek-v4-pro`; one command to change
+- 🎯 **Model routing** — ships with DSH's DeepSeek models: `economy` → `deepseek-v4-flash`, `balanced`/`frontier` → `deepseek-v4-pro`; one command to change (`set-model-tier`)
+- 🛡️ **External-write lane** — production mutations (Jenkins, Nacos, MySQL, Redis, SSH) never run bare: capability registry + per-dispatch authorization + evidence gates + rollback
 - 🧾 **Hash-chained ledger** — one CHAIN per dispatch, line-by-line hash chaining, terminal records archived under `state/archive/YYYY-MM/`; verifiable and traceable
-- 🧪 **Tested for real** — every script runs on Windows PowerShell 5.1: preflight, input parsing, indexing, CAS state machine, dispatch queue, chain store; end-to-end integration tests green
+- 🧪 **Tested for real** — every script runs on Windows PowerShell 5.1: preflight, input parsing, indexing, CAS state machine, dispatch queue, chain store, external-write and Goal operations; end-to-end integration tests green
 
 ## Versus one long session
 

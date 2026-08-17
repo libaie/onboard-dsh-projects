@@ -29,6 +29,9 @@
 
 - ✅ 每个仓库：一次**只读核验** → 一份**快照索引**（结构/入口/文档/术语）→ 一个**常驻入口子代理**
 - ✅ 可选**中控**：派发队列状态机 + 哈希链 CHAIN 记录 + 三档模型分层 + 有界经验复用
+- ✅ **external-write 泳道**：Jenkins / Nacos / 数据库 / Redis / SSH 等生产变更必须走「能力注册表 + 逐次授权 + 证据门禁 + 回退」，并带无泳道刹车——中控绝不自己下场干运维
+- ✅ **Goal 记账**：在清单中注册/推进/终结目标（`register-goal` / `advance-goal` / `terminal-goal`），可关联一条 CHAIN
+- ✅ **权威契约**：SKILL.md 的「Controller / Entry-Agent Contract」章节固化双方的职责、边界与协作顺序——越界即上报，绝不静默绕过
 - ✅ 一切状态都有**CAS 哈希校验**，写入必须走 `Read → Prepare → Apply → Read` 协议，杜绝手改和漂移
 - ✅ 工具链预检、封闭输入解析（拒绝凭据/危险 ref/重复冲突），安全失败默认关闭
 
@@ -85,9 +88,10 @@ createControllerAgent: true
 
 - 🧩 **四象限请求协议**——双方已知/用户已知/agent 已知/双方未知，各走各的处理路径，不瞎猜也不废话
 - 🔒 **只读接入，写入单独授权**——外部仓库默认只读；克隆、分支切换、提交都要逐次明确授权，绝不静默越界
-- 🎯 **模型分层**——出厂即配好本部署的两个真实模型：`economy` → `deepseek-v4-flash`，`balanced`/`frontier` → `deepseek-v4-pro`；一键可改
+- 🎯 **模型分层**——出厂即配 DSH 的两款 DeepSeek 模型：`economy` → `deepseek-v4-flash`，`balanced`/`frontier` → `deepseek-v4-pro`；一键可改（`set-model-tier`）
+- 🛡️ **external-write 泳道**——生产变更（Jenkins、Nacos、MySQL、Redis、SSH）绝不允许裸奔：能力注册表 + 逐次授权 + 证据门禁 + 回退步骤
 - 🧾 **哈希链台账**——每个派发一条 CHAIN，逐行哈希成链，终态归档到 `state/archive/YYYY-MM/`，可验证、可追溯
-- 🧪 **全程实测**——所有脚本在 Windows PowerShell 5.1 实跑通过：预检、输入解析、索引、CAS 状态机、派发队列、链式存储，端到端集成测试全绿
+- 🧪 **全程实测**——所有脚本在 Windows PowerShell 5.1 实跑通过：预检、输入解析、索引、CAS 状态机、派发队列、链式存储、external-write 与 Goal 操作，端到端集成测试全绿
 
 ## 和「一个长会话全做」的区别
 

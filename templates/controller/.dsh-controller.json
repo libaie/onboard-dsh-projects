@@ -10,9 +10,18 @@
   "capabilities": [],
   "goals": [],
   "modelTiers": {
-    "economy": null,
-    "balanced": null,
-    "frontier": null
+    "economy": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash"
+    },
+    "balanced": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-pro"
+    },
+    "frontier": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-pro"
+    }
   },
   "dispatchSeq": 0
 }
