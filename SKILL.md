@@ -121,7 +121,7 @@ Long-lived sessions grow input-side context replay superlinearly; with context-c
 
 1. **Rotate the controller session per batch** — after a bounded number of terminal CHAINs (default 8) or at the end of a business batch, report and hand over to a fresh session via `set-controller-session`; entry agents persist across sessions. Never grow one session without bound.
 2. **Batch large dispatches off-peak** — respect the provider's peak/off-peak pricing windows; schedule bulk workflow and external-write batches outside peak hours; an urgent single dispatch may run on-peak but must note the premium in its conclusions.
-3. **Economy-first tiers** — `economy` (template default `deepseek-v4-flash`) is the standing tier for routine single-repository work; `balanced` for ordinary cross-repository engineering; `frontier` only for contracts, high-risk correctness, or unknown root cause. Keep the reasoning effort at low/high by default; reserve maximum effort for explicit user requests.
+3. **Tiered execution, maximum only where it pays** — the controller's own analysis (intake, contract freezing, routing) may use maximum reasoning effort; its cost is bounded by rule 1. Execution lanes are model-assigned by difficulty: `economy` (template default `deepseek-v4-flash`) for routine single-repository work, `balanced` and `frontier` (`deepseek-v4-pro`) for ordinary cross-repository engineering and contracts/high-risk correctness respectively; execution reasoning effort defaults to low/high and does not follow the controller up to maximum.
 
 ### Dispatch queue and execution
 

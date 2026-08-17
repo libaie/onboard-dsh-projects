@@ -57,10 +57,11 @@ Violating a route is a protocol violation: report it, never work around it.
   (default 8); hand over with `set-controller-session`. Entry agents persist.
 - Batch large dispatches outside the provider's peak pricing window; note the
   premium when an urgent dispatch runs on-peak.
-- Tier economy-first (`economy` is the default for routine single-repo work);
-  `balanced` for ordinary cross-repo work; `frontier` only for contracts and
-  high-risk correctness. Keep reasoning effort at low/high unless the user asks
-  otherwise.
+- Tiered execution by difficulty: `economy` for routine single-repo work,
+  `balanced` for ordinary cross-repo engineering, `frontier` for contracts and
+  high-risk correctness. Execution-lane reasoning effort defaults to low/high;
+  the controller's own analysis may use maximum effort (bounded by session
+  rotation).
 
 ## Dispatch execution
 
