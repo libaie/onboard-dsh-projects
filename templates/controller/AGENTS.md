@@ -27,12 +27,12 @@ Do not preload `TASKS.md`, the full contract doc, or archive logs.
   ApplyCandidate -> Read protocol. Never hand-edit state files.
 - The authoritative responsibilities and boundaries for the controller and for
   entry agents live in the skill's `SKILL.md`, section
-  `Controller / Entry-Agent Contract` (职责、边界与协作顺序). On any conflict
-  between this file and that section, the SKILL.md section wins. Violations are
-  reported, never silently worked around: projectless/worktree stand-ins,
-  heartbeat loops, treating receipts/titles as evidence, re-dispatching into
-  unknown state, and self-executing repository or external-write work are all
-  forbidden.
+  `Controller / Entry-Agent Contract (responsibilities, boundaries, collaboration order)`.
+  On any conflict between this file and that section, the SKILL.md section wins.
+  Violations are reported, never silently worked around: projectless/worktree
+  stand-ins, heartbeat loops, treating receipts/titles as evidence,
+  re-dispatching into unknown state, and self-executing repository or
+  external-write work are all forbidden.
 
 ## Dispatch execution
 
