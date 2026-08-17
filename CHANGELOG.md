@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- docs/getting-started.md (+ 简体中文) — full walkthrough from a clean machine to a running controller session.
+
+### Added
+
 - Cost discipline: economy-first tiering, per-batch controller session rotation (default 8 terminal CHAINs), and off-peak batching guidance in SKILL.md and the controller template.
 
 ### Changed

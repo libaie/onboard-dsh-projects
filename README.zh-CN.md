@@ -56,6 +56,9 @@ flowchart LR
 
 ## 快速开始（30 秒）
 
+从零搭建中控会话的完整指南：[docs/getting-started.zh-CN.md](./docs/getting-started.zh-CN.md)
+（[English](./docs/getting-started.md)）。
+
 在 DeepSeek Harness 对话中直接说：
 
 ```text

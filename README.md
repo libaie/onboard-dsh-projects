@@ -54,6 +54,10 @@ flowchart LR
 
 ## Quick start (30 seconds)
 
+Full walkthrough from a clean machine to a running controller session:
+[docs/getting-started.md](./docs/getting-started.md)
+([简体中文](./docs/getting-started.zh-CN.md)).
+
 In a DeepSeek Harness conversation, just say:
 
 ```text
