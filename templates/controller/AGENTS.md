@@ -68,6 +68,12 @@ Violating a route is a protocol violation: report it, never work around it.
 5. On deterministic failure, record the rejected mechanism in the experience
    index (`state/experience-index.json` via the dsh-state adapter) and pick the
    next allowed strategy; never retry the same mechanism silently.
+6. Dispatches may declare dependencies (`dependencies` on `enqueue-dispatch` /
+   `retry-dispatch`): `start-next-dispatch` refuses `dependency-unsatisfied`
+   until every dependency terminated with an allowed state. On a blocked gate,
+   surface it to the user — never force-start and never fake a terminal state;
+   a user-canceled head is removed with `cancel-pending-dispatch` so the FIFO
+   queue cannot deadlock.
 
 ## External-write lane (Jenkins / Nacos / DB / Redis / SSH / HTTP changes)
 

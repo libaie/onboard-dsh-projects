@@ -8,7 +8,7 @@ param(
     'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding', 'remove-project',
     'enqueue-dispatch', 'start-next-dispatch', 'advance-dispatch',
     'record-dispatch-outcome', 'request-dispatch-cancel', 'retry-dispatch',
-    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch', 'register-goal', 'advance-goal', 'terminal-goal')]
+    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch', 'register-goal', 'advance-goal', 'terminal-goal', 'cancel-pending-dispatch')]
   [string]$Operation,
   [string]$PayloadJson,
   [string]$PayloadJsonBase64,
@@ -138,6 +138,39 @@ function Test-GoalReason {
   return $true
 }
 
+function Test-DependencyRefs {
+  param([object]$Value)
+  if ($null -eq $Value) { return $true }
+  if ($Value -isnot [System.Array]) { return $false }
+  if (@($Value).Count -gt 16) { return $false }
+  $seen = @{}
+  foreach ($dep in @($Value)) {
+    if ($null -eq $dep -or -not ($dep.PSObject.Properties.Name -contains 'dispatchId')) { return $false }
+    if ([string]$dep.dispatchId -notmatch '^D-[0-9]{4}$') { return $false }
+    if ($seen.ContainsKey([string]$dep.dispatchId)) { return $false }
+    $seen[[string]$dep.dispatchId] = $true
+    $extra = @($dep.PSObject.Properties.Name) | Where-Object { $_ -cnotin @('dispatchId', 'allowedTerminalStates') }
+    if (@($extra).Count -gt 0) { return $false }
+    if ($dep.PSObject.Properties.Name -contains 'allowedTerminalStates') {
+      if ($dep.allowedTerminalStates -isnot [System.Array] -or @($dep.allowedTerminalStates).Count -eq 0) { return $false }
+      foreach ($st in @($dep.allowedTerminalStates)) {
+        if ([string]$st -cnotin @('accepted-success', 'deterministic-failure', 'transient-failure', 'blocked', 'superseded', 'canceled')) { return $false }
+      }
+    }
+  }
+  return $true
+}
+
+function Get-TerminalByDispatchId {
+  param([object]$Manifest, [string]$DispatchId)
+  foreach ($queue in @($Manifest.dispatchQueues)) {
+    if ($null -ne $queue.lastTerminal -and [string]$queue.lastTerminal.dispatchId -ceq $DispatchId) {
+      return [pscustomobject]@{ Found=$true; Terminal=$queue.lastTerminal }
+    }
+  }
+  return [pscustomobject]@{ Found=$false; Terminal=$null }
+}
+
 function New-DispatchItem {
   param([object]$Manifest, [object]$Payload, [bool]$Rework)
   $accessMode = 'write'
@@ -177,6 +210,16 @@ function New-DispatchItem {
   else {
     if ($authRequired) { return [pscustomobject]@{ Error = 'authorization-only-for-external-write' } }
     if ($Payload.PSObject.Properties.Name -contains 'capabilityRefs' -and $null -ne $Payload.capabilityRefs) { return [pscustomobject]@{ Error = 'capability-refs-only-for-external-write' } }
+  }
+  if ($Payload.PSObject.Properties.Name -contains 'dependencies' -and $null -ne $Payload.dependencies) {
+    $deps = @($Payload.dependencies | ForEach-Object {
+      $depObj = [pscustomobject][ordered]@{ dispatchId = [string]$_.dispatchId }
+      if ($_.PSObject.Properties.Name -contains 'allowedTerminalStates') {
+        $depObj | Add-Member -NotePropertyName 'allowedTerminalStates' -NotePropertyValue (@($_.allowedTerminalStates | ForEach-Object { [string]$_ }))
+      }
+      $depObj
+    })
+    $item | Add-Member -NotePropertyName 'dependencies' -NotePropertyValue $deps
   }
   return [pscustomobject]@{ Item = $item }
 }
@@ -275,10 +318,11 @@ function Invoke-Operation {
       return $Manifest
     }
     'enqueue-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ([int]$Payload.generation -lt 1 -or [int]$Payload.generation -gt 1000) { return [pscustomobject]@{ Error='invalid-generation' } }
       if ($Payload.rework -isnot [bool]) { return [pscustomobject]@{ Error='invalid-rework' } }
+      if ($Payload.PSObject.Properties.Name -contains 'dependencies' -and -not (Test-DependencyRefs $Payload.dependencies)) { return [pscustomobject]@{ Error='invalid-dependencies' } }
       $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
       if (-not (Test-DispatchTaskSpec $Payload.taskSpec $maxLen)) { return [pscustomobject]@{ Error='invalid-task-spec' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
@@ -301,6 +345,15 @@ function Invoke-Operation {
       $head = $queueRef.Queue.pending[0]
       if ([string]$head.accessMode -ceq 'external-write') {
         if ($null -eq $head.authorization -or [string]$head.authorization.status -cne 'granted') { return [pscustomobject]@{ Error='authorization-pending' } }
+      }
+      if ($head.PSObject.Properties.Name -contains 'dependencies' -and $null -ne $head.dependencies) {
+        foreach ($dep in @($head.dependencies)) {
+          $ref = Get-TerminalByDispatchId -Manifest $Manifest -DispatchId ([string]$dep.dispatchId)
+          if (-not $ref.Found) { return [pscustomobject]@{ Error='dependency-unsatisfied' } }
+          $allowed = @('accepted-success')
+          if ($dep.PSObject.Properties.Name -contains 'allowedTerminalStates') { $allowed = @($dep.allowedTerminalStates | ForEach-Object { [string]$_ }) }
+          if ([string]$ref.Terminal.resultState -cnotin $allowed) { return [pscustomobject]@{ Error='dependency-unsatisfied' } }
+        }
       }
       $rest = New-Object Collections.Generic.List[object]
       for ($i = 1; $i -lt @($queueRef.Queue.pending).Count; $i++) { $rest.Add($queueRef.Queue.pending[$i]) }
@@ -354,8 +407,9 @@ function Invoke-Operation {
       return $Manifest
     }
     'retry-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
+      if ($Payload.PSObject.Properties.Name -contains 'dependencies' -and -not (Test-DependencyRefs $Payload.dependencies)) { return [pscustomobject]@{ Error='invalid-dependencies' } }
       $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
       if (-not (Test-DispatchTaskSpec $Payload.taskSpec $maxLen)) { return [pscustomobject]@{ Error='invalid-task-spec' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
@@ -503,6 +557,20 @@ function Invoke-Operation {
       if ($Payload.PSObject.Properties.Name -contains 'reason' -and $null -ne $Payload.reason) {
         $goalRef.Goal | Add-Member -NotePropertyName 'reason' -NotePropertyValue ([string]$Payload.reason) -Force
       }
+      return $Manifest
+    }
+    'cancel-pending-dispatch' {
+      if (-not (Test-ClosedKeys $Payload @('repoId', 'dispatchId'))) { return $null }
+      if ([string]$Payload.dispatchId -notmatch '^D-[0-9]{4}$') { return [pscustomobject]@{ Error='invalid-dispatch-id' } }
+      $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
+      if (-not $queueRef.Found) { return [pscustomobject]@{ Error='queue-not-found' } }
+      $rest = New-Object Collections.Generic.List[object]
+      $found = $false
+      foreach ($item in @($queueRef.Queue.pending)) {
+        if ([string]$item.dispatchId -ceq [string]$Payload.dispatchId) { $found = $true } else { $rest.Add($item) }
+      }
+      if (-not $found) { return [pscustomobject]@{ Error='dispatch-not-in-pending' } }
+      $queueRef.Queue.pending = $rest.ToArray()
       return $Manifest
     }
     'set-model-tier' {

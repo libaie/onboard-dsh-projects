@@ -29,6 +29,7 @@ The scariest failure mode in AI-assisted coding isn't a weak model — it's cros
 - ✅ Optional controller: dispatch queue state machine + hash-chained CHAIN records + three-tier model routing + bounded experience reuse
 - ✅ **External-write lane**: Jenkins / Nacos / DB / Redis / SSH changes go through a capability registry with per-dispatch user authorization and the same CHAIN accounting — with a no-lane brake so the controller never does ops work itself
 - ✅ **Mandatory request routing** — every request is classified first: external mutations → external-write lane, single-repo work → that repo's entry agent (never a one-shot stand-in), multi-repo or contract work → workflow dispatch; mixed requests are split and sequenced
+- ✅ **Dependency gating** — a dispatch can declare dependencies on earlier dispatches (with allowed terminal states); the queue refuses to start it until satisfied, and a blocked head can be canceled without deadlocking the FIFO
 - ✅ **Goal ledger**: register, advance, and terminate goals in the manifest (`register-goal` / `advance-goal` / `terminal-goal`), linkable to a CHAIN
 - ✅ **Authoritative contract**: the SKILL.md section "Controller / Entry-Agent Contract" pins down responsibilities, boundaries, and the collaboration order for both sides — violations are reported, never silently worked around
 - ✅ Every piece of state is CAS-hash-verified; mutations must go through a `Read → Prepare → Apply → Read` protocol — no hand edits, no drift
