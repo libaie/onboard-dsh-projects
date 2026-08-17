@@ -388,9 +388,13 @@ function Invoke-Operation {
     }
     'advance-dispatch' {
       if (-not (Test-ClosedKeys $Payload @('repoId', 'phase'))) { return $null }
-      if ([string]::IsNullOrWhiteSpace([string]$Payload.phase) -or ([string]$Payload.phase).Length -gt 64 -or [string]$Payload.phase -match '[\x00-\x1f\x7f]') { return [pscustomobject]@{ Error='invalid-phase' } }
+      $phaseOrder = @('dispatched', 'in-progress', 'evidence-collected')
+      if ([string]$Payload.phase -cnotin $phaseOrder) { return [pscustomobject]@{ Error='invalid-phase' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
       if (-not $queueRef.Found -or $null -eq $queueRef.Queue.active) { return [pscustomobject]@{ Error='no-active-dispatch' } }
+      $curIdx = [Array]::IndexOf($phaseOrder, [string]$queueRef.Queue.active.phase)
+      $newIdx = [Array]::IndexOf($phaseOrder, [string]$Payload.phase)
+      if ($curIdx -lt 0 -or $newIdx -lt $curIdx) { return [pscustomobject]@{ Error='invalid-phase-transition' } }
       $queueRef.Queue.active.phase = [string]$Payload.phase
       return $Manifest
     }

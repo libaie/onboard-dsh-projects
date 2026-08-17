@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Dispatch phases are now a closed, monotonic set (`dispatched -> in-progress -> evidence-collected`); backward or unknown transitions are rejected.
+
+### Added
+
+- `scripts/rebuild-dashboard.ps1` regenerates `TASKS.md` from the controller manifest (active / pending with gate status / terminal rows).
+- Governance test suite: phase state machine + dashboard regeneration (15 assertions; total suite count now 5, 75 assertions).
+
 ## [0.1.0] - 2026-08-17
 
 First public release of the DeepSeek Harness adaptation.

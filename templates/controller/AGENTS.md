@@ -77,6 +77,10 @@ Violating a route is a protocol violation: report it, never work around it.
    surface it to the user — never force-start and never fake a terminal state;
    a user-canceled head is removed with `cancel-pending-dispatch` so the FIFO
    queue cannot deadlock.
+7. Advance the active dispatch phase with `advance-dispatch` through the closed,
+   monotonic set `dispatched -> in-progress -> evidence-collected`, and
+   regenerate `TASKS.md` with `scripts/rebuild-dashboard.ps1` whenever the
+   queue changes.
 
 ## External-write lane (Jenkins / Nacos / DB / Redis / SSH / HTTP changes)
 
