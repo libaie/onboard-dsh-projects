@@ -34,6 +34,23 @@ Do not preload `TASKS.md`, the full contract doc, or archive logs.
   re-dispatching into unknown state, and self-executing repository or
   external-write work are all forbidden.
 
+## Request routing (first decision of every turn)
+
+Classify every accepted request before touching any state, in this order:
+
+1. Touches anything outside repositories (Jenkins, Nacos, MySQL/Redis, SSH,
+   deployments, HTTP endpoints)? -> external-write lane. Never mutate external
+   systems yourself; read-only inspection is allowed.
+2. Exactly one registered repoId (investigation, fix, tests, report)? ->
+   `send_message` to that repo's entry agent. Never use a one-shot subagent for
+   single-repo work and never do it in your own turn; rebuild a missing entry
+   (`needs-entry-agent`) instead of substituting.
+3. Two or more repos, or a shared contract change? -> dispatch queue +
+   `workflow` (one agent per lane). One-shot workflow agents exist only here.
+4. Mixed requests: split by route, sequence by dependency, one CHAIN per dispatch.
+
+Violating a route is a protocol violation: report it, never work around it.
+
 ## Dispatch execution
 
 1. Take the next dispatch from the manifest queue head only after the parent

@@ -96,6 +96,25 @@ Initialization products: `.dsh-controller.json` (the only manifest), `tools/cont
 
 When `createControllerAgent=true` and the manifest `controllerAgentId` is empty, create a persistent controller subagent with the `subagent` tool; the seed prompt contains only the controller root path and "read `AGENTS.md` first". Write the durable id into the manifest via `set-controller-agent`. Route cross-project requests to the controller agent with `send_message`; it reads `memory/MEMORY.md`, `state/index.json`, and the manifest, then dispatches.
 
+### Request routing (dispatch classification)
+
+Before any queue work, the controller classifies every accepted request into exactly one route; ambiguous requests are split into sub-requests first, then routed and sequenced by dependency. This classification is **mandatory, not discretionary** — it is the controller's first decision of every turn.
+
+Decide in this order:
+
+1. **External-write route** — the request touches anything outside the repositories: Jenkins builds or triggers, Nacos/gateway config changes, MySQL/Redis changes or backfills, SSH operations, production HTTP endpoints, deployments. Route: the external-write lane (`register-capability` when missing — otherwise stop and declare; `enqueue-dispatch(accessMode=external-write)` -> user `authorize-dispatch` -> the lane executor seeded from `templates/dispatch-external-write.md`). Read-only inspection of external systems (logs, dashboards, config reads) is not a lane action, but the controller may only read — the moment a mutation appears, route it to the lane.
+2. **Single-repository route** — the request affects exactly one registered repoId: investigation, root cause, fix, tests, or a report for that repository. Route: `send_message` to that repository's entry agent. **Hard rule**: never spawn a one-shot subagent for single-repository work, and never do the repository work inside the controller's own turn. If the entry is missing (`needs-entry-agent`), rebuild it per Project Lanes step 5 first — never substitute a one-shot agent. Evidence and reports are produced by the entry agent and written to the output paths the dispatch allows.
+3. **Cross-repository route** — the request spans two or more repositories, or freezes/amends a shared contract. Route: the normal dispatch queue (freeze the contract -> `enqueue-dispatch` -> `start-next-dispatch` -> `workflow` with one phase per lane, one agent per lane). One-shot workflow agents are the designated executor **only** on this route.
+4. **Mixed requests** — split by route and sequence by dependency (for example: repository fix first, then the production change through the external-write lane), with one CHAIN per dispatch.
+
+Tie-breakers: the repository count decides single versus cross; any external mutation decides the lane; contract changes are always cross-repository because contracts are shared; risk class maps to the model tier (`economy` / `balanced` / `frontier`).
+
+Anti-bypass brakes (report the violation, never work around it):
+
+- single-repository work executed by a one-shot agent or by the controller itself is a protocol violation;
+- an external mutation executed outside the lane is a protocol violation;
+- a missing entry agent or missing capability means stop and declare — never substitute an improvised agent for either.
+
 ### Dispatch queue and execution
 
 The manifest changes only through `tools/control-state.ps1` with the `Read -> PrepareCandidate(<Operation>, <PayloadJson>, <ExpectedHash>) -> ApplyCandidate -> Read` protocol. Operations: `register-project`, `replace-project-binding`, `remove-project` (`{projectRoot, expectedEntryAgentId}` must match before removal, which also deletes that repoId's dispatch queue), `enqueue-dispatch`, `start-next-dispatch`, `advance-dispatch`, `record-dispatch-outcome`, `request-dispatch-cancel`, `retry-dispatch`, `set-model-tier`, `set-controller-agent`, `set-controller-name`, `set-controller-session` (registers the user-chosen controller interaction session id so the UI can locate the controller session), `register-capability`, `remove-capability`, `authorize-dispatch` (see External-Write Lane below), `register-goal`, `advance-goal`, `terminal-goal` (Goal ledger: register with `{goalId, objective, chainIdRef?}`, advance through `open|advancing|paused|blocked`, terminate with `completed|stopped`; terminal goals cannot transition further, goal ids must be unique, `chainIdRef` links a goal to one CHAIN).
