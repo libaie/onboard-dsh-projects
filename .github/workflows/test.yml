@@ -1,0 +1,15 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  powershell-51:
+    name: Test suites on Windows PowerShell 5.1
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run skill test suites
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run-all.ps1
