@@ -5,12 +5,28 @@
 
 > 权威契约在 `SKILL.md`。本指南只是实用路径；两者冲突时以 `SKILL.md` 为准。
 
-## 1. 前置条件
+## 1. 前置条件（依赖项，务必先读）
 
-- 一个已配置默认模型（如部署中注册的 `deepseek-v4-pro` / `deepseek-v4-flash`）的 DSH；
-- Windows PowerShell 5.1（脚本目标环境，Windows 自带）；
-- 如需接入远端仓库则要 Git（本地目录不需要）；
-- 每次任务一个 DSH 工作区。技能的全部状态都在 `<工作区>/.agents/onboard-dsh/` 下。
+必需：
+
+- DeepSeek Harness（DSH）——技能只在 DSH 会话内运行；
+- Windows PowerShell 5.1——全部脚本的目标环境；
+- DSH 会话持久化后端——入口子代理是 continuable 子会话，必须有持久化后端；
+- 已注册的 LLM 模型——分层模型（出厂 `deepseek-official` 下的
+  `deepseek-v4-flash` / `deepseek-v4-pro`）必须在你的部署中可解析；否则用
+  `set-model-tier` 把档位设为 `null`（会话默认模型）；
+- 每次任务一个 DSH 工作区（技能状态都在 `<工作区>/.agents/onboard-dsh/` 下）。
+
+按需：
+
+- Git——仅接入远端仓库时需要；
+- OpenSSH 客户端——仅 SSH 源需要；
+- Git LFS——仅完整 LFS 检出需要；
+- Node 18+——中控经 `workflow` 派发及任何 Node 脚本需要。
+
+可选：codebase-memory（`cbm_*` 图查询桥；没有它技能自动回退轻量索引）。
+
+`scripts/preflight.ps1` 会逐项检查并安全失败。
 
 ## 2. 安装技能
 

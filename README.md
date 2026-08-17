@@ -23,6 +23,22 @@ The scariest failure mode in AI-assisted coding isn't a weak model — it's cros
 
 **In one line**: when a feature, incident, or release spans multiple repositories with different instructions, branch rules, test commands, or write scopes — this is the skill for it.
 
+## Dependencies (read before installing)
+
+| Dependency | Level | Notes |
+| --- | --- | --- |
+| DeepSeek Harness (DSH) | **Required** | The skill only runs inside DSH sessions; it is built on DSH-native tools (`subagent`, `workflow`, session notifications, skill loading). |
+| Windows PowerShell 5.1 | **Required** | Every script targets it; CI verifies it on every push. |
+| DSH session-persistence backend | **Required** | Entry subagents are continuable children and require a session-persistence backend to be loaded. |
+| Registered LLM models | **Required** | Tier models (defaults: `deepseek-official` / `deepseek-v4-flash` / `deepseek-v4-pro`) must resolve in the deployment's `llm` service; otherwise set the tiers to `null` (session default) with `set-model-tier`. |
+| Git | Conditional | Only for Git sources (`-RequireGit` in preflight). |
+| OpenSSH client | Conditional | Only for SSH-based sources (`-RequireSsh`). |
+| Git LFS | Conditional | Only for full-LFS checkouts (`-RequireLfs`). |
+| Node 18+ | Conditional | Controller dispatch via `workflow` and any Node scripts (`-RequireNode`). |
+| codebase-memory | Optional | The `cbm_*` graph bridge; when absent, the skill falls back to its lightweight index. |
+
+`scripts/preflight.ps1` checks every dependency and fails closed on `status=blocked`.
+
 ## What you get
 
 - ✅ Per repository: one read-only verification → one snapshot index (structure / entrypoints / docs / glossary) → one long-lived entry subagent

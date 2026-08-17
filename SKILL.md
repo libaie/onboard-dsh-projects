@@ -61,6 +61,22 @@ All state lives inside the DSH workspace: `<workspace>/.agents/onboard-dsh/`.
 - `projects/<repoId>/index/` — index artifacts (`scripts/index-repo.ps1`)
 - `controller/` — controller root (when enabled; must be inside the workspace and must not equal, contain, or be contained by any business repository root or clone root)
 
+## Dependencies
+
+Check these before the first run; `scripts/preflight.ps1` verifies the toolchain and fails closed on `status=blocked`.
+
+| Dependency | Level | Notes |
+| --- | --- | --- |
+| DeepSeek Harness (DSH) | Required | The skill only runs inside DSH sessions and relies on DSH-native tools (`subagent`, `workflow`, session notifications, skill loading). |
+| Windows PowerShell 5.1 | Required | Every script targets it. |
+| DSH session-persistence backend | Required | Entry subagents are continuable children and require a session-persistence backend. |
+| Registered LLM models | Required | Tier models (template defaults `deepseek-official` / `deepseek-v4-flash` / `deepseek-v4-pro`) must resolve in the deployment's `llm` service; otherwise set tiers to `null` (session default) via `set-model-tier`. |
+| Git | Conditional | Only for Git sources (`-RequireGit`). |
+| OpenSSH client | Conditional | Only for SSH sources (`-RequireSsh`). |
+| Git LFS | Conditional | Only for full-LFS checkouts (`-RequireLfs`). |
+| Node 18+ | Conditional | Controller dispatch via `workflow` and any Node scripts (`-RequireNode`). |
+| codebase-memory | Optional | The `cbm_*` bridge; absent tools or `ready=false` fall back to the lightweight index. |
+
 ## Preflight And Secure Parsing
 
 1. **Before first use**: `scripts/index-mode.ps1 -Action Get -ConfigRoot <stateRoot>`. If it returns `needs-selection`, have the user pick `fast`/`moderate`/`full` (recommend `full`), then persist with `-Action Set`. An explicit per-run `indexMode` does not overwrite the saved default.

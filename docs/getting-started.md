@@ -7,15 +7,30 @@ This guide takes a brand-new user from a clean machine to a working
 > The authoritative contract lives in `SKILL.md`. This guide is the practical
 > path through it; when they disagree, `SKILL.md` wins.
 
-## 1. Prerequisites
+## 1. Prerequisites (dependencies)
 
-- A DeepSeek Harness (DSH) installation with a configured default model
-  (e.g. `deepseek-v4-pro` / `deepseek-v4-flash` registered in the deployment).
-- Windows PowerShell 5.1 (the scripts target it) — preinstalled on Windows.
-- Git, if you plan to onboard remote repositories (local directories need no
-  Git).
-- One DSH workspace per effort. All skill state lives under
-  `<workspace>/.agents/onboard-dsh/`.
+Required:
+
+- A DeepSeek Harness (DSH) installation — the skill only runs inside DSH.
+- Windows PowerShell 5.1 — every script targets it.
+- A DSH session-persistence backend — entry subagents are continuable children.
+- Registered LLM models — the tier models (defaults `deepseek-v4-flash` /
+  `deepseek-v4-pro` under `deepseek-official`) must resolve in your deployment;
+  otherwise set tiers to `null` (session default) with `set-model-tier`.
+- One DSH workspace per effort (all skill state lives under
+  `<workspace>/.agents/onboard-dsh/`).
+
+Conditional:
+
+- Git — only for remote repository sources.
+- OpenSSH client — only for SSH-based sources.
+- Git LFS — only for full-LFS checkouts.
+- Node 18+ — controller dispatch via `workflow` and any Node scripts.
+
+Optional: codebase-memory (the `cbm_*` graph bridge; the skill falls back to
+its lightweight index without it).
+
+`scripts/preflight.ps1` checks all of the above and fails closed.
 
 ## 2. Install the skill
 
