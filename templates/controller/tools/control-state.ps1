@@ -8,7 +8,7 @@ param(
     'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding', 'remove-project',
     'enqueue-dispatch', 'start-next-dispatch', 'advance-dispatch',
     'record-dispatch-outcome', 'request-dispatch-cancel', 'retry-dispatch',
-    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch')]
+    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch', 'register-goal', 'advance-goal', 'terminal-goal')]
   [string]$Operation,
   [string]$PayloadJson,
   [string]$PayloadJsonBase64,
@@ -121,13 +121,30 @@ function Get-CapabilityRef {
   return [pscustomobject]@{ Found=$false; Capability=$null }
 }
 
+function Get-GoalRef {
+  param([object]$Manifest, [string]$GoalId)
+  if (-not ($Manifest.PSObject.Properties.Name -contains 'goals')) { return [pscustomobject]@{ Found=$false; Goal=$null } }
+  if ($null -eq $Manifest.goals) { return [pscustomobject]@{ Found=$false; Goal=$null } }
+  foreach ($goal in @($Manifest.goals)) {
+    if ($null -ne $goal -and [string]$goal.goalId -ceq $GoalId) { return [pscustomobject]@{ Found=$true; Goal=$goal } }
+  }
+  return [pscustomobject]@{ Found=$false; Goal=$null }
+}
+
+function Test-GoalReason {
+  param([object]$Value)
+  if ($null -eq $Value) { return $true }
+  if ([string]::IsNullOrWhiteSpace([string]$Value) -or ([string]$Value).Length -gt 200 -or [string]$Value -match '[\x00-\x1f\x7f]') { return $false }
+  return $true
+}
+
 function New-DispatchItem {
   param([object]$Manifest, [object]$Payload, [bool]$Rework)
   $accessMode = 'write'
-  if ($null -ne $Payload.accessMode) { $accessMode = [string]$Payload.accessMode }
+  if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and $null -ne $Payload.accessMode) { $accessMode = [string]$Payload.accessMode }
   if ($accessMode -cnotin @('read', 'write', 'external-write')) { return [pscustomobject]@{ Error = 'invalid-access-mode' } }
   $authRequired = $false
-  if ($null -ne $Payload.authorizationRequired) {
+  if ($Payload.PSObject.Properties.Name -contains 'authorizationRequired' -and $null -ne $Payload.authorizationRequired) {
     if ($Payload.authorizationRequired -isnot [bool]) { return [pscustomobject]@{ Error = 'invalid-authorization-required' } }
     $authRequired = [bool]$Payload.authorizationRequired
   }
@@ -143,7 +160,7 @@ function New-DispatchItem {
   if ($accessMode -ceq 'external-write') {
     if (-not $authRequired) { return [pscustomobject]@{ Error = 'authorization-required-for-external-write' } }
     $refs = @()
-    if ($null -ne $Payload.capabilityRefs) {
+    if ($Payload.PSObject.Properties.Name -contains 'capabilityRefs' -and $null -ne $Payload.capabilityRefs) {
       if ($Payload.capabilityRefs -isnot [System.Array]) { return [pscustomobject]@{ Error = 'invalid-capability-refs' } }
       $refs = @($Payload.capabilityRefs | ForEach-Object { [string]$_ })
     }
@@ -159,7 +176,7 @@ function New-DispatchItem {
   }
   else {
     if ($authRequired) { return [pscustomobject]@{ Error = 'authorization-only-for-external-write' } }
-    if ($null -ne $Payload.capabilityRefs) { return [pscustomobject]@{ Error = 'capability-refs-only-for-external-write' } }
+    if ($Payload.PSObject.Properties.Name -contains 'capabilityRefs' -and $null -ne $Payload.capabilityRefs) { return [pscustomobject]@{ Error = 'capability-refs-only-for-external-write' } }
   }
   return [pscustomobject]@{ Item = $item }
 }
@@ -262,7 +279,7 @@ function Invoke-Operation {
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ([int]$Payload.generation -lt 1 -or [int]$Payload.generation -gt 1000) { return [pscustomobject]@{ Error='invalid-generation' } }
       if ($Payload.rework -isnot [bool]) { return [pscustomobject]@{ Error='invalid-rework' } }
-      $maxLen = if ([string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
+      $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
       if (-not (Test-DispatchTaskSpec $Payload.taskSpec $maxLen)) { return [pscustomobject]@{ Error='invalid-task-spec' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
       if (-not $queueRef.Found) { $queueRef = [pscustomobject]@{ Found=$true; Queue=(New-Queue ([string]$Payload.repoId)) }; $Manifest.dispatchQueues += $queueRef.Queue }
@@ -339,7 +356,7 @@ function Invoke-Operation {
     'retry-dispatch' {
       if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
-      $maxLen = if ([string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
+      $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
       if (-not (Test-DispatchTaskSpec $Payload.taskSpec $maxLen)) { return [pscustomobject]@{ Error='invalid-task-spec' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
       if (-not $queueRef.Found -or $null -eq $queueRef.Queue.lastTerminal) { return [pscustomobject]@{ Error='no-terminal-dispatch' } }
@@ -410,6 +427,7 @@ function Invoke-Operation {
       if ([string]$head.dispatchId -cne [string]$Payload.dispatchId) { return [pscustomobject]@{ Error='not-queue-head' } }
       if ([string]$head.accessMode -cne 'external-write') { return [pscustomobject]@{ Error='not-external-write' } }
       if ([bool]$Payload.granted) {
+        if (-not ($Payload.PSObject.Properties.Name -contains 'grantRef')) { return [pscustomobject]@{ Error='invalid-grant-ref' } }
         $grantRef = [string]$Payload.grantRef
         if ([string]::IsNullOrWhiteSpace($grantRef) -or $grantRef.Length -gt 128 -or $grantRef -match '[\x00-\x1f\x7f]') { return [pscustomobject]@{ Error='invalid-grant-ref' } }
         $head | Add-Member -NotePropertyName 'authorization' -NotePropertyValue ([pscustomobject][ordered]@{ status='granted'; grantRef=$grantRef; authorizedAtUtc=([DateTime]::UtcNow).ToString('o') }) -Force
@@ -426,6 +444,64 @@ function Invoke-Operation {
           authorizationDenied = $true
           finishedAtUtc = ([DateTime]::UtcNow).ToString('o')
         }
+      }
+      return $Manifest
+    }
+    'register-goal' {
+      if (-not (Test-KeySet $Payload @('goalId', 'objective') @('chainIdRef'))) { return $null }
+      $goalId = [string]$Payload.goalId
+      if ($goalId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return [pscustomobject]@{ Error='invalid-goal-id' } }
+      if ([string]::IsNullOrWhiteSpace([string]$Payload.objective) -or ([string]$Payload.objective).Length -gt 400 -or [string]$Payload.objective -match '[\x00-\x1f\x7f]') { return [pscustomobject]@{ Error='invalid-goal-objective' } }
+      $chainRef = $null
+      if ($Payload.PSObject.Properties.Name -contains 'chainIdRef' -and $null -ne $Payload.chainIdRef) {
+        if ([string]$Payload.chainIdRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return [pscustomobject]@{ Error='invalid-goal-chain-ref' } }
+        $chainRef = [string]$Payload.chainIdRef
+      }
+      if (-not ($Manifest.PSObject.Properties.Name -contains 'goals')) {
+        $Manifest | Add-Member -NotePropertyName 'goals' -NotePropertyValue @()
+      }
+      if ($null -eq $Manifest.goals) { $Manifest.goals = @() }
+      foreach ($goal in @($Manifest.goals)) {
+        if ($null -ne $goal -and [string]$goal.goalId -ceq $goalId) { return [pscustomobject]@{ Error='goal-already-registered' } }
+      }
+      $now = ([DateTime]::UtcNow).ToString('o')
+      $Manifest.goals += [pscustomobject][ordered]@{
+        goalId = $goalId
+        objective = [string]$Payload.objective
+        chainIdRef = $chainRef
+        status = 'open'
+        createdAtUtc = $now
+        updatedAtUtc = $now
+      }
+      return $Manifest
+    }
+    'advance-goal' {
+      if (-not (Test-KeySet $Payload @('goalId', 'status') @('reason'))) { return $null }
+      if ([string]$Payload.status -cnotin @('open', 'advancing', 'paused', 'blocked')) { return [pscustomobject]@{ Error='invalid-goal-status' } }
+      if ($Payload.PSObject.Properties.Name -contains 'reason' -and -not (Test-GoalReason $Payload.reason)) { return [pscustomobject]@{ Error='invalid-goal-reason' } }
+      $goalRef = Get-GoalRef -Manifest $Manifest -GoalId ([string]$Payload.goalId)
+      if (-not $goalRef.Found) { return [pscustomobject]@{ Error='goal-not-found' } }
+      if ([string]$goalRef.Goal.status -cin @('completed', 'stopped')) { return [pscustomobject]@{ Error='goal-already-terminal' } }
+      $goalRef.Goal.status = [string]$Payload.status
+      $goalRef.Goal.updatedAtUtc = ([DateTime]::UtcNow).ToString('o')
+      if ($Payload.PSObject.Properties.Name -contains 'reason' -and $null -ne $Payload.reason) {
+        $goalRef.Goal | Add-Member -NotePropertyName 'reason' -NotePropertyValue ([string]$Payload.reason) -Force
+      }
+      return $Manifest
+    }
+    'terminal-goal' {
+      if (-not (Test-KeySet $Payload @('goalId', 'outcome') @('reason'))) { return $null }
+      if ([string]$Payload.outcome -cnotin @('completed', 'stopped')) { return [pscustomobject]@{ Error='invalid-goal-outcome' } }
+      if ($Payload.PSObject.Properties.Name -contains 'reason' -and -not (Test-GoalReason $Payload.reason)) { return [pscustomobject]@{ Error='invalid-goal-reason' } }
+      $goalRef = Get-GoalRef -Manifest $Manifest -GoalId ([string]$Payload.goalId)
+      if (-not $goalRef.Found) { return [pscustomobject]@{ Error='goal-not-found' } }
+      if ([string]$goalRef.Goal.status -cin @('completed', 'stopped')) { return [pscustomobject]@{ Error='goal-already-terminal' } }
+      $now = ([DateTime]::UtcNow).ToString('o')
+      $goalRef.Goal.status = [string]$Payload.outcome
+      $goalRef.Goal.updatedAtUtc = $now
+      $goalRef.Goal | Add-Member -NotePropertyName 'terminalAtUtc' -NotePropertyValue $now -Force
+      if ($Payload.PSObject.Properties.Name -contains 'reason' -and $null -ne $Payload.reason) {
+        $goalRef.Goal | Add-Member -NotePropertyName 'reason' -NotePropertyValue ([string]$Payload.reason) -Force
       }
       return $Manifest
     }

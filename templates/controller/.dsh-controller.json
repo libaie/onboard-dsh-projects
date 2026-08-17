@@ -8,6 +8,7 @@
   "projectBindings": [],
   "dispatchQueues": [],
   "capabilities": [],
+  "goals": [],
   "modelTiers": {
     "economy": {
       "provider": "deepseek-official",
