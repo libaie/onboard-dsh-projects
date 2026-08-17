@@ -9,6 +9,7 @@
   "dispatchQueues": [],
   "capabilities": [],
   "goals": [],
+  "contracts": [],
   "modelTiers": {
     "economy": {
       "provider": "deepseek-official",

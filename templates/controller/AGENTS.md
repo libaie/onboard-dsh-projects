@@ -55,8 +55,11 @@ Violating a route is a protocol violation: report it, never work around it.
 
 1. Take the next dispatch from the manifest queue head only after the parent
    agent authorizes it (or per standing instructions in MEMORY.md).
-2. Freeze contracts before cross-project dispatch; a fix may be dispatched
-   directly when root cause, scope, and acceptance evidence are already fixed.
+2. Freeze contracts before cross-project dispatch — record them with
+   `freeze-contract` (`{contractId, version, hash, docPath}`, append-only;
+   amendments are new versions) and cite them with `contractRef` on enqueue.
+   A fix may be dispatched directly when root cause, scope, and acceptance
+   evidence are already fixed.
 3. Run the dispatch as a `workflow` script: one phase per project lane, one
    agent per lane, seeded with the exact repo root, its binding, and its index
    paths. Model tier comes from `modelTiers`; a `null` tier means no override

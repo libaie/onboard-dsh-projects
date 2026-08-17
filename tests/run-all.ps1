@@ -5,7 +5,8 @@ $ErrorActionPreference = 'Stop'
 $suites = @(
   'suite-lane.ps1',
   'suite-goal.ps1',
-  'suite-dependency.ps1'
+  'suite-dependency.ps1',
+  'suite-contract.ps1'
 )
 
 $failed = 0

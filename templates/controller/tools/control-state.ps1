@@ -8,7 +8,7 @@ param(
     'set-controller-agent', 'clear-controller-agent', 'set-controller-name', 'set-controller-session', 'register-project', 'replace-project-binding', 'remove-project',
     'enqueue-dispatch', 'start-next-dispatch', 'advance-dispatch',
     'record-dispatch-outcome', 'request-dispatch-cancel', 'retry-dispatch',
-    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch', 'register-goal', 'advance-goal', 'terminal-goal', 'cancel-pending-dispatch')]
+    'set-model-tier', 'register-capability', 'remove-capability', 'authorize-dispatch', 'register-goal', 'advance-goal', 'terminal-goal', 'cancel-pending-dispatch', 'freeze-contract')]
   [string]$Operation,
   [string]$PayloadJson,
   [string]$PayloadJsonBase64,
@@ -131,6 +131,16 @@ function Get-GoalRef {
   return [pscustomobject]@{ Found=$false; Goal=$null }
 }
 
+function Get-ContractRef {
+  param([object]$Manifest, [string]$ContractId)
+  if (-not ($Manifest.PSObject.Properties.Name -contains 'contracts')) { return [pscustomobject]@{ Found=$false } }
+  if ($null -eq $Manifest.contracts) { return [pscustomobject]@{ Found=$false } }
+  foreach ($ct in @($Manifest.contracts)) {
+    if ($null -ne $ct -and [string]$ct.contractId -ceq $ContractId) { return [pscustomobject]@{ Found=$true } }
+  }
+  return [pscustomobject]@{ Found=$false }
+}
+
 function Test-GoalReason {
   param([object]$Value)
   if ($null -eq $Value) { return $true }
@@ -220,6 +230,16 @@ function New-DispatchItem {
       $depObj
     })
     $item | Add-Member -NotePropertyName 'dependencies' -NotePropertyValue $deps
+  }
+  if ($Payload.PSObject.Properties.Name -contains 'contractRef' -and $null -ne $Payload.contractRef) {
+    if ([string]$Payload.contractRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') { return [pscustomobject]@{ Error = 'invalid-contract-ref' } }
+    if (-not (Get-ContractRef -Manifest $Manifest -ContractId ([string]$Payload.contractRef)).Found) { return [pscustomobject]@{ Error = 'contract-not-frozen' } }
+    $item | Add-Member -NotePropertyName 'contractRef' -NotePropertyValue ([string]$Payload.contractRef)
+  }
+  if ($Payload.PSObject.Properties.Name -contains 'goalIdRef' -and $null -ne $Payload.goalIdRef) {
+    if ([string]$Payload.goalIdRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return [pscustomobject]@{ Error = 'invalid-goal-ref' } }
+    if (-not (Get-GoalRef -Manifest $Manifest -GoalId ([string]$Payload.goalIdRef)).Found) { return [pscustomobject]@{ Error = 'goal-not-found' } }
+    $item | Add-Member -NotePropertyName 'goalIdRef' -NotePropertyValue ([string]$Payload.goalIdRef)
   }
   return [pscustomobject]@{ Item = $item }
 }
@@ -318,7 +338,7 @@ function Invoke-Operation {
       return $Manifest
     }
     'enqueue-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'goalIdRef'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ([int]$Payload.generation -lt 1 -or [int]$Payload.generation -gt 1000) { return [pscustomobject]@{ Error='invalid-generation' } }
       if ($Payload.rework -isnot [bool]) { return [pscustomobject]@{ Error='invalid-rework' } }
@@ -407,7 +427,7 @@ function Invoke-Operation {
       return $Manifest
     }
     'retry-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'goalIdRef'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ($Payload.PSObject.Properties.Name -contains 'dependencies' -and -not (Test-DependencyRefs $Payload.dependencies)) { return [pscustomobject]@{ Error='invalid-dependencies' } }
       $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
@@ -571,6 +591,30 @@ function Invoke-Operation {
       }
       if (-not $found) { return [pscustomobject]@{ Error='dispatch-not-in-pending' } }
       $queueRef.Queue.pending = $rest.ToArray()
+      return $Manifest
+    }
+    'freeze-contract' {
+      if (-not (Test-ClosedKeys $Payload @('contractId', 'version', 'hash', 'docPath'))) { return $null }
+      $cid = [string]$Payload.contractId
+      if ($cid -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return [pscustomobject]@{ Error='invalid-contract-id' } }
+      if ([string]$Payload.version -notmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$') { return [pscustomobject]@{ Error='invalid-contract-version' } }
+      if ([string]$Payload.hash -notmatch '^[0-9a-f]{64}$') { return [pscustomobject]@{ Error='invalid-contract-hash' } }
+      $doc = [string]$Payload.docPath
+      if ([string]::IsNullOrWhiteSpace($doc) -or $doc.Length -gt 256 -or $doc -match '[\x00-\x1f\x7f]' -or $doc -match '^[A-Za-z]:|^[\\/]') { return [pscustomobject]@{ Error='invalid-contract-doc-path' } }
+      if (-not ($Manifest.PSObject.Properties.Name -contains 'contracts')) {
+        $Manifest | Add-Member -NotePropertyName 'contracts' -NotePropertyValue @()
+      }
+      if ($null -eq $Manifest.contracts) { $Manifest.contracts = @() }
+      foreach ($ct in @($Manifest.contracts)) {
+        if ($null -ne $ct -and [string]$ct.contractId -ceq $cid -and [string]$ct.version -ceq [string]$Payload.version) { return [pscustomobject]@{ Error='contract-version-already-frozen' } }
+      }
+      $Manifest.contracts += [pscustomobject][ordered]@{
+        contractId = $cid
+        version = [string]$Payload.version
+        hash = [string]$Payload.hash
+        docPath = $doc
+        frozenAtUtc = ([DateTime]::UtcNow).ToString('o')
+      }
       return $Manifest
     }
     'set-model-tier' {
