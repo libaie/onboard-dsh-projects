@@ -8,20 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- docs/getting-started.md (+ 简体中文) — full walkthrough from a clean machine to a running controller session.
-
-### Added
-
+- docs/getting-started.md (+ Simplified Chinese) — full walkthrough from a clean machine to a running controller session.
 - Cost discipline: economy-first tiering, per-batch controller session rotation (default 8 terminal CHAINs), and off-peak batching guidance in SKILL.md and the controller template.
+- `scripts/rebuild-dashboard.ps1` regenerates `TASKS.md` from the controller manifest (active / pending with gate status / terminal rows).
+- Governance test suite: phase state machine + dashboard regeneration (15 assertions; total suite count now 5, 75 assertions).
 
 ### Changed
 
 - Dispatch phases are now a closed, monotonic set (`dispatched -> in-progress -> evidence-collected`); backward or unknown transitions are rejected.
-
-### Added
-
-- `scripts/rebuild-dashboard.ps1` regenerates `TASKS.md` from the controller manifest (active / pending with gate status / terminal rows).
-- Governance test suite: phase state machine + dashboard regeneration (15 assertions; total suite count now 5, 75 assertions).
 
 ## [0.1.0] - 2026-08-17
 
