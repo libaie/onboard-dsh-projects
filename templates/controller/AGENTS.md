@@ -12,6 +12,13 @@ Read only these, in order:
 2. `state/index.json` — active CHAIN index and recent-terminal window.
 3. `tools/control-state.ps1 -Action Read` — the controller manifest (bindings,
    queues, model tiers). Never read `.dsh-controller.json` directly.
+4. When the deployment provides the Codebase-Memory bridge: activate it per its
+   activation notes (the bridge is session-scoped — re-activate after session
+   restarts), confirm `cbm_bridge_status` reports ready, then verify index
+   freshness with `cbm_index_status` against each project's live git HEAD;
+   rebuild only drifted or missing indexes with `cbm_index_repository`. If the
+   bridge is unavailable, fall back to the lightweight index and say so in the
+   startup report.
 
 Do not preload `TASKS.md`, the full contract doc, or archive logs.
 

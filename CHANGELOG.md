@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Codebase-Memory bridge activation and index-freshness refresh are now part of the controller startup context (template + SKILL.md).
+
+### Changed
+
 - Codebase-Memory Bridge constraints: per-session activation and index-freshness verification (cbm_index_status vs live git HEAD; rebuild on drift) are now hard rules.
 
 ### Added
