@@ -110,6 +110,13 @@ createControllerAgent: true
 - 索引是**快照**，不是实时视图；跨会话工作前会先重验绑定与索引
 - 模型分层依赖部署注册的模型；未注册的档位自动退回会话默认模型
 
+## 开发说明
+
+- 仓库是唯一事实源。在仓库中修改，再把变更同步到你的 DSH 技能目录（例如 `~/.dsh/skills/onboard-dsh-projects/`）。
+- 运行测试：`powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run-all.ps1`（Windows PowerShell 5.1）。CI 在每次 push 和 PR 上跑同一条命令。
+- Windows 注意：测试脚本保持纯 ASCII 或带 BOM 的 UTF-8（PowerShell 5.1 会把无 BOM 的非 ASCII 文件读乱）；仓库通过 `core.autocrlf=true` 统一 CRLF。
+- 状态机变更一律走 `tools/control-state.ps1` 的 CAS 协议，禁止手改清单或 CHAIN 文件。
+
 ## 协议
 
 [MIT](./LICENSE)

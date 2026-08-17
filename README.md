@@ -109,6 +109,13 @@ Entry agents can still use subagents and workflows internally — the two compos
 - The index is a **snapshot**, not a live view; bindings and indexes are re-verified before cross-session work
 - Model routing depends on the models your deployment registers; an unconfigured tier falls back to the session default model
 
+## Development
+
+- The repository is the source of truth. Iterate in the repo, then sync the changed files to your DSH skills directory (for example `~/.dsh/skills/onboard-dsh-projects/`).
+- Run the test suites: `powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run-all.ps1` (Windows PowerShell 5.1). CI runs the same command on every push and pull request.
+- Windows notes: keep test scripts ASCII or UTF-8 with BOM (PowerShell 5.1 misreads BOM-less non-ASCII files); the repo normalizes CRLF via `core.autocrlf=true`.
+- State-machine changes go through `tools/control-state.ps1` with the CAS protocol; never hand-edit manifests or CHAIN files.
+
 ## License
 
 [MIT](./LICENSE)
