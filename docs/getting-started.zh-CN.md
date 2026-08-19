@@ -127,7 +127,7 @@ controller-ready. Route every request per SKILL.md "Request routing".
 
 ## 8. 成本纪律（读一遍，长期遵守）
 
-1. **中控会话按批轮换**——每 8 条终态 CHAIN（或业务批次结束）交接新会话：
+1. **中控会话按批轮换**——每 24 条终态 CHAIN（或业务批次结束）交接新会话：
    `set-controller-session` 登记新会话，再在新会话下重建入口代理
    （逐仓库 `replace-project-binding`；DSH 子代理绑定其持久父会话）。旧会话归档。
 2. **大批量派发错峰**——避开提供商的峰时定价窗口；紧急单条注明溢价。

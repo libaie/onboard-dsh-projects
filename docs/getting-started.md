@@ -144,7 +144,7 @@ auto-generated `TASKS.md` (`scripts/rebuild-dashboard.ps1`).
 
 ## 8. Cost discipline (read once, follow always)
 
-1. **Rotate the controller session per batch** — after 8 terminal CHAINs (or a
+1. **Rotate the controller session per batch** — after 24 terminal CHAINs (or a
    finished business batch), hand over to a fresh session:
    `set-controller-session` registers the new session, then rebuild entry
    agents under it (`replace-project-binding` per repo; DSH subagents are bound
