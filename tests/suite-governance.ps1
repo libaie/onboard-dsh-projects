@@ -4,9 +4,6 @@ $ErrorActionPreference = 'Stop'
 
 $c = New-TestController
 try {
-  $H = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-  $E = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-
   # phase state machine
   $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"taskSpec":{"objective":"phase checks"}}'
   Expect 'enqueue for phase checks' $r.ok
@@ -23,7 +20,7 @@ try {
   Expect 'backward transition rejected' (-not $r.ok -and $r.reason -eq 'invalid-phase-transition')
   $r = Run-Op $c 'advance-dispatch' '{"repoId":"crmeb-backend","phase":"flying"}'
   Expect 'unknown phase rejected' (-not $r.ok -and $r.reason -eq 'invalid-phase')
-  $r = Run-Op $c 'record-dispatch-outcome' ('{"repoId":"crmeb-backend","taskSpecHash":"' + $H + '","resultState":"accepted-success","evidenceHash":"' + $E + '","finishedAtUtc":"2026-08-17T00:00:00Z"}')
+  $r = Complete-ActiveDispatch $c 'crmeb-backend' '2026-08-17T00:00:00Z'
   Expect 'outcome recorded' $r.ok
   $r = Run-Op $c 'advance-dispatch' '{"repoId":"crmeb-backend","phase":"in-progress"}'
   Expect 'advance after terminal rejected' (-not $r.ok -and $r.reason -eq 'no-active-dispatch')

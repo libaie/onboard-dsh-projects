@@ -101,8 +101,12 @@ function Validate-Entry {
   param([object]$Entry, [bool]$Terminal)
   if ($null -eq $Entry -or $null -eq $Entry.record) { return $false }
   $record = $Entry.record
-  foreach ($name in @($record.PSObject.Properties.Name)) {
+  $recordNames = @($record.PSObject.Properties.Name)
+  foreach ($name in $recordNames) {
     if ($name -cnotin @('schemaVersion','chainId','state','phase','status','createdAtUtc','updatedAtUtc','objective','nextAction','payload')) { return $false }
+  }
+  foreach ($name in @('schemaVersion','chainId','state','phase','status','objective')) {
+    if ($recordNames -cnotcontains $name) { return $false }
   }
   if ([int]$record.schemaVersion -ne 1) { return $false }
   if ($Terminal) {
@@ -115,8 +119,10 @@ function Validate-Entry {
   }
   if ([string]::IsNullOrWhiteSpace([string]$record.phase) -or ([string]$record.phase).Length -gt 64 -or [string]$record.phase -match '[\x00-\x1f\x7f]') { return $false }
   if ([string]::IsNullOrWhiteSpace([string]$record.objective) -or ([string]$record.objective).Length -gt 2000) { return $false }
-  if ($null -ne $record.nextAction -and ([string]$record.nextAction).Length -gt 500) { return $false }
-  $payloadJson = if ($null -ne $record.payload) { $record.payload | ConvertTo-Json -Depth 12 -Compress } else { '{}' }
+  $nextAction = if ($recordNames -ccontains 'nextAction') { $record.nextAction } else { $null }
+  $payload = if ($recordNames -ccontains 'payload') { $record.payload } else { $null }
+  if ($null -ne $nextAction -and ([string]$nextAction).Length -gt 500) { return $false }
+  $payloadJson = if ($null -ne $payload) { $payload | ConvertTo-Json -Depth 12 -Compress } else { '{}' }
   if ($payloadJson.Length -gt 16384) { return $false }
   if ($payloadJson -match $secretPattern) { return $false }
   $text = ($record | ConvertTo-Json -Depth 12 -Compress)
@@ -186,6 +192,10 @@ switch ($Action) {
     }
     $candidate = $null
     try { $candidate = ($utf8.GetString($candidateBytes)) | ConvertFrom-Json -ErrorAction Stop } catch { Write-Result 'invalid' ([ordered]@{ reasonCode='candidate-not-json' }) 2 }
+    $candidateNames = @($candidate.PSObject.Properties.Name)
+    foreach ($name in @('chainId','confirmTerminal','record')) {
+      if ($candidateNames -cnotcontains $name) { Write-Result 'invalid' ([ordered]@{ reasonCode='invalid-candidate' }) 2 }
+    }
     $chainId = [string]$candidate.chainId
     if ($chainId -notmatch '^chain-[0-9a-f]{16}$') { Write-Result 'invalid' ([ordered]@{ reasonCode='invalid-chain-id' }) 2 }
     $confirmTerminal = [bool]$candidate.confirmTerminal
@@ -210,17 +220,18 @@ switch ($Action) {
     $chainIdOfRecord = [string]$candidate.record.chainId
     if ($chainIdOfRecord -cne $chainId) { Write-Result 'invalid' ([ordered]@{ reasonCode='record-chain-id-mismatch' }) 2 }
     $seq = if ($active.Found) { $active.Entries.Count + 1 } else { 1 }
+    $recordNames = @($candidate.record.PSObject.Properties.Name)
     $lineRecord = [pscustomobject][ordered]@{
       schemaVersion = [int]$candidate.record.schemaVersion
       chainId = [string]$candidate.record.chainId
       state = [string]$candidate.record.state
       phase = [string]$candidate.record.phase
       status = [string]$candidate.record.status
-      createdAtUtc = if ($null -ne $candidate.record.createdAtUtc) { [string]$candidate.record.createdAtUtc } else { $now }
+      createdAtUtc = if ($recordNames -ccontains 'createdAtUtc' -and $null -ne $candidate.record.createdAtUtc) { [string]$candidate.record.createdAtUtc } else { $now }
       updatedAtUtc = $now
       objective = [string]$candidate.record.objective
-      nextAction = if ($null -ne $candidate.record.nextAction) { [string]$candidate.record.nextAction } else { $null }
-      payload = if ($null -ne $candidate.record.payload) { $candidate.record.payload } else { $null }
+      nextAction = if ($recordNames -ccontains 'nextAction' -and $null -ne $candidate.record.nextAction) { [string]$candidate.record.nextAction } else { $null }
+      payload = if ($recordNames -ccontains 'payload') { $candidate.record.payload } else { $null }
     }
     $line = [pscustomobject][ordered]@{ seq=$seq; prevHash=if ($null -eq $active.LastHash) { $null } else { $active.LastHash }; record=$lineRecord } | ConvertTo-Json -Depth 12 -Compress
     $lineBytes = $utf8.GetBytes($line + "`n")
@@ -264,6 +275,11 @@ switch ($Action) {
     foreach ($file in $files) {
       $chain = Read-ChainFile $file.FullName
       if ($chain.Corrupt -or $chain.Lines.Count -eq 0) { $failures.Add($file.BaseName) }
+    }
+    $archiveFiles = @(Get-ChildItem -LiteralPath $archiveDir -Recurse -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
+    foreach ($file in $archiveFiles) {
+      $chain = Read-ChainFile $file.FullName
+      if ($chain.Corrupt -or $chain.Lines.Count -eq 0 -or -not $chain.Terminal) { $failures.Add($file.BaseName) }
     }
     $index = Read-Index
     if (-not $index.Exists -or $null -eq $index.Data) { $failures.Add('index-missing-or-invalid') }

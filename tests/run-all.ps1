@@ -7,7 +7,8 @@ $suites = @(
   'suite-goal.ps1',
   'suite-dependency.ps1',
   'suite-contract.ps1',
-  'suite-governance.ps1'
+  'suite-governance.ps1',
+  'suite-integrity.ps1'
 )
 
 $failed = 0

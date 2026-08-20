@@ -20,16 +20,16 @@ try {
   $r = Run-Op $c 'register-goal' '{"goalId":"goal-contract-v1","objective":"contract gating verification"}'
   Expect 'goal registered' $r.ok
 
-  $enq = '{"repoId":"crmeb-backend","modelClass":"frontier","generation":1,"rework":false,"taskSpec":{"objective":"contract work"},"contractRef":"mall-steward-debt-evidence","goalIdRef":"goal-contract-v1"}'
+  $enq = '{"repoId":"crmeb-backend","modelClass":"frontier","generation":1,"rework":false,"taskSpec":{"objective":"contract work"},"contractRef":"mall-steward-debt-evidence","contractVersion":"1.0.0","goalIdRef":"goal-contract-v1"}'
   $r = Run-Op $c 'enqueue-dispatch' $enq
   Expect 'enqueue with valid contractRef+goalIdRef' $r.ok
   $m = Read-Manifest $c
   $q = $m.dispatchQueues | Where-Object { $_.repoId -eq 'crmeb-backend' }
   $item = $q.pending[-1]
-  Expect 'pending item carries contractRef' ($item.contractRef -eq 'mall-steward-debt-evidence')
+  Expect 'pending item pins contract version and hash' ($item.contractRef -eq 'mall-steward-debt-evidence' -and $item.contractVersion -eq '1.0.0' -and $item.contractHash -eq $H)
   Expect 'pending item carries goalIdRef' ($item.goalIdRef -eq 'goal-contract-v1')
 
-  $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"taskSpec":{"objective":"x"},"contractRef":"never-frozen"}'
+  $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"taskSpec":{"objective":"x"},"contractRef":"never-frozen","contractVersion":"1.0.0"}'
   Expect 'unknown contractRef rejected' (-not $r.ok -and $r.reason -eq 'contract-not-frozen')
   $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"taskSpec":{"objective":"x"},"goalIdRef":"missing-goal"}'
   Expect 'unknown goalIdRef rejected' (-not $r.ok -and $r.reason -eq 'goal-not-found')

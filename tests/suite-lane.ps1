@@ -4,9 +4,6 @@ $ErrorActionPreference = 'Stop'
 
 $c = New-TestController
 try {
-  $H = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-  $E = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-
   $r = Run-Op $c 'register-capability' '{"capId":"jenkins-root","kind":"jenkins","label":"Jenkins root","targets":["jenkins-root","dev-crmeb"],"allowedOps":["trigger-build","get-build-status"],"secretRef":"env:JENKINS_TOKEN"}'
   Expect 'register-capability applied' $r.ok
   $r = Run-Op $c 'register-capability' '{"capId":"jenkins-root","kind":"jenkins","label":"dup","targets":["x"],"allowedOps":["y"],"secretRef":"env:Z"}'
@@ -28,8 +25,7 @@ try {
   $r = Run-Op $c 'start-next-dispatch' '{"repoId":"crmeb-backend","leaseId":"lease-ew1"}'
   Expect 'start succeeds after grant' $r.ok
 
-  $payload = '{"repoId":"crmeb-backend","taskSpecHash":"' + $H + '","resultState":"accepted-success","evidenceHash":"' + $E + '","finishedAtUtc":"2026-08-17T00:00:00Z"}'
-  $r = Run-Op $c 'record-dispatch-outcome' $payload
+  $r = Complete-ActiveDispatch $c 'crmeb-backend' '2026-08-17T00:00:00Z'
   Expect 'outcome recorded' $r.ok
 
   $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"accessMode":"external-write","capabilityRefs":["jenkins-root"],"authorizationRequired":true,"taskSpec":{"objective":"deny path","verification":["v"],"rollback":["r"]}}'

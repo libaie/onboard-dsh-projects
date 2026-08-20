@@ -4,19 +4,13 @@ $ErrorActionPreference = 'Stop'
 
 $c = New-TestController
 try {
-  $H = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-  $E = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-  function Rec-Payload([string]$Repo, [string]$Finish) {
-    return '{"repoId":"' + $Repo + '","taskSpecHash":"' + $H + '","resultState":"accepted-success","evidenceHash":"' + $E + '","finishedAtUtc":"' + $Finish + '"}'
-  }
-
   # baseline dispatch on crmeb-backend
   $r = Run-Op $c 'enqueue-dispatch' '{"repoId":"crmeb-backend","modelClass":"balanced","generation":1,"rework":false,"taskSpec":{"objective":"baseline fix"}}'
   Expect 'baseline enqueued' $r.ok
   $id1 = Get-PendingTailId $c 'crmeb-backend'
   $r = Run-Op $c 'start-next-dispatch' '{"repoId":"crmeb-backend","leaseId":"lease-b1"}'
   Expect 'baseline started' $r.ok
-  $r = Run-Op $c 'record-dispatch-outcome' (Rec-Payload 'crmeb-backend' '2026-08-17T00:00:00Z')
+  $r = Complete-ActiveDispatch $c 'crmeb-backend' '2026-08-17T00:00:00Z'
   Expect 'baseline accepted' $r.ok
 
   # dependent dispatch (default allowed accepted-success)
@@ -25,7 +19,7 @@ try {
   Expect 'dependent enqueued' $r.ok
   $r = Run-Op $c 'start-next-dispatch' '{"repoId":"crmeb-backend","leaseId":"lease-b2"}'
   Expect 'dependent starts (dependency satisfied)' $r.ok
-  $r = Run-Op $c 'record-dispatch-outcome' (Rec-Payload 'crmeb-backend' '2026-08-17T00:05:00Z')
+  $r = Complete-ActiveDispatch $c 'crmeb-backend' '2026-08-17T00:05:00Z'
   Expect 'dependent accepted' $r.ok
 
   # missing dependency blocks, then cancel-pending unblocks the FIFO
@@ -41,7 +35,7 @@ try {
   Expect 'queue unblocked enqueue' $r.ok
   $r = Run-Op $c 'start-next-dispatch' '{"repoId":"price","leaseId":"lease-u1"}'
   Expect 'queue unblocked start' $r.ok
-  $r = Run-Op $c 'record-dispatch-outcome' (Rec-Payload 'price' '2026-08-17T00:10:00Z')
+  $r = Complete-ActiveDispatch $c 'price' '2026-08-17T00:10:00Z'
   Expect 'unblocked accepted' $r.ok
 
   # wrong allowed terminal state blocks
