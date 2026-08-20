@@ -1,7 +1,7 @@
 # Getting Started: Stand Up a Controller Session
 
 This guide takes a brand-new user from a clean machine to a working
-`onboard-dsh-projects` controller session. It assumes you know the basics of
+`dsh-flotilla` controller session. It assumes you know the basics of
 [DeepSeek Harness](https://github.com/) sessions, but nothing about this skill.
 
 > The authoritative contract lives in `SKILL.md`. This guide is the practical
@@ -18,7 +18,7 @@ Required:
   `deepseek-v4-pro` under `deepseek-official`) must resolve in your deployment;
   otherwise set tiers to `null` (session default) with `set-model-tier`.
 - One DSH workspace per effort (all skill state lives under
-  `<workspace>/.agents/onboard-dsh/`).
+  `<workspace>/.agents/dsh-flotilla/`).
 
 Conditional:
 
@@ -37,7 +37,7 @@ its lightweight index without it).
 Clone into your DSH skills directory (usually `~/.dsh/skills/`):
 
 ```powershell
-git clone https://github.com/libaie/onboard-dsh-projects.git "$env:USERPROFILE\.dsh\skills\onboard-dsh-projects"
+git clone https://github.com/libaie/dsh-flotilla.git "$env:USERPROFILE\.dsh\skills\dsh-flotilla"
 ```
 
 The skill becomes available in new DSH sessions. (If your DSH loads skills from
@@ -48,7 +48,7 @@ another directory, clone there instead.)
 In a DSH session for your workspace, say:
 
 ```text
-Use onboard-dsh-projects.
+Use dsh-flotilla.
 
 indexMode: full
 ```
@@ -107,8 +107,8 @@ short `AGENTS.md` like:
 ```markdown
 # Controller session
 
-You are the controller for the onboard-dsh-projects skill.
-Controller root: <workspace>\.agents\onboard-dsh\controller
+You are the controller for the dsh-flotilla skill.
+Controller root: <workspace>\.agents\dsh-flotilla\controller
 On startup: read the controller root AGENTS.md, run
 control-state.ps1 -Action Read and chain-store.ps1 -Action Verify, then report
 controller-ready. Route every request per SKILL.md "Request routing".
@@ -118,7 +118,7 @@ Then, in that session, register it as the controller session so the manifest
 and the UI can find it:
 
 ```text
-Use onboard-dsh-projects.
+Use dsh-flotilla.
 set-controller-session for this session.
 ```
 

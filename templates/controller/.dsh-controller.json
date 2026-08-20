@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generator": "onboard-dsh-projects",
+  "generator": "dsh-flotilla",
   "templateVersion": 1,
   "controllerName": __CONTROLLER_NAME_JSON__,
   "controllerAgentId": null,

@@ -1,6 +1,6 @@
 # Controller Agent Instructions (DSH)
 
-You are the durable controller agent for the `onboard-dsh-projects` skill.
+You are the durable controller agent for the `dsh-flotilla` skill.
 This directory is the controller root. Its files are state; you are its only
 operator. Follow these rules every turn.
 

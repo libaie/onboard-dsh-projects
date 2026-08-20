@@ -1,4 +1,4 @@
-# Shared harness for the onboard-dsh-projects test suites.
+# Shared harness for the dsh-flotilla test suites.
 # Dot-source this file from a suite script: . (Join-Path $PSScriptRoot 'common.ps1')
 
 $ErrorActionPreference = 'Stop'
@@ -7,7 +7,7 @@ $script:TestFailures = 0
 $script:LastReason = ''
 
 function New-TestController {
-  $tmp = Join-Path ([IO.Path]::GetTempPath()) ('onboard-dsh-test-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+  $tmp = Join-Path ([IO.Path]::GetTempPath()) ('dsh-flotilla-test-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
   New-Item -ItemType Directory -Path $tmp | Out-Null
   $tpl = Get-Content (Join-Path $script:RepoRoot 'templates\controller\.dsh-controller.json') -Raw
   $tpl = $tpl.Replace('__CONTROLLER_NAME_JSON__', '"Test Control Center"')

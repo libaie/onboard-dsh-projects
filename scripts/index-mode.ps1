@@ -19,7 +19,7 @@ if ([string]::IsNullOrWhiteSpace($ConfigRoot) -or -not [IO.Path]::IsPathRooted($
 }
 $stateRoot = [IO.Path]::GetFullPath($ConfigRoot)
 $configDirectory = Join-Path $stateRoot 'skill-state'
-$configPath = Join-Path $configDirectory 'onboard-dsh-projects.json'
+$configPath = Join-Path $configDirectory 'dsh-flotilla.json'
 
 $choices = @('fast', 'moderate', 'full')
 
@@ -83,7 +83,7 @@ if ([string]::IsNullOrWhiteSpace($IndexMode)) {
 }
 
 New-Item -ItemType Directory -Path $configDirectory -Force | Out-Null
-$temporaryPath = Join-Path $configDirectory ('onboard-dsh-projects.' + [guid]::NewGuid().ToString('N') + '.tmp')
+$temporaryPath = Join-Path $configDirectory ('dsh-flotilla.' + [guid]::NewGuid().ToString('N') + '.tmp')
 try {
   $json = [pscustomobject][ordered]@{
     schemaVersion = 1

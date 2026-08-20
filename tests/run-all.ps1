@@ -1,4 +1,4 @@
-# Runs every onboard-dsh-projects test suite in fresh child processes.
+# Runs every dsh-flotilla test suite in fresh child processes.
 # Exits non-zero when any suite fails. Works on Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
 

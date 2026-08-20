@@ -1,9 +1,9 @@
 ---
-name: onboard-dsh-projects
+name: dsh-flotilla
 description: "Multi-repository workflow isolation for DeepSeek Harness: onboard each repository as a read-only entry subagent with a lightweight workspace-local index; an optional controller manages the cross-project dispatch queue, workflow model tiers, CHAIN records, Goals, and bounded experience reuse. Use when work spans two or more repositories, or when a repository needs a persistent isolated entry point."
 ---
 
-# Onboard Code Projects (DSH Adaptation)
+# dsh-flotilla
 
 Keep each repository's instructions, evidence, index, and edits inside its own **entry subagent**. Keep cross-project contracts, dispatch, and verification only in the optional **controller**. This is workflow isolation, not a filesystem or security sandbox.
 
@@ -54,9 +54,9 @@ Before any onboarding or controller work, apply the four-quadrant protocol to th
 
 ### State root
 
-All state lives inside the DSH workspace: `<workspace>/.agents/onboard-dsh/`.
+All state lives inside the DSH workspace: `<workspace>/.agents/dsh-flotilla/`.
 
-- `skill-state/onboard-dsh-projects.json` — index-mode preference (`scripts/index-mode.ps1`, pass `-ConfigRoot <stateRoot>`)
+- `skill-state/dsh-flotilla.json` — index-mode preference (`scripts/index-mode.ps1`, pass `-ConfigRoot <stateRoot>`)
 - `projects/<repoId>/binding.json` — project binding (`scripts/dsh-state.ps1 -StateRoot <stateRoot> -Name projects/<repoId>/binding`)
 - `projects/<repoId>/index/` — index artifacts (`scripts/index-repo.ps1`)
 - `controller/` — controller root (when enabled; must be inside the workspace and must not equal, contain, or be contained by any business repository root or clone root)

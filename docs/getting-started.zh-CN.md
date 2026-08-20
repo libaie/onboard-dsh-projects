@@ -1,6 +1,6 @@
 # 快速上手：从零搭建中控会话
 
-本指南带一个全新用户从干净环境走到可用的 `onboard-dsh-projects` 中控会话。
+本指南带一个全新用户从干净环境走到可用的 `dsh-flotilla` 中控会话。
 假设你已会用 DeepSeek Harness（DSH）会话，但对本技能完全陌生。
 
 > 权威契约在 `SKILL.md`。本指南只是实用路径；两者冲突时以 `SKILL.md` 为准。
@@ -15,7 +15,7 @@
 - 已注册的 LLM 模型——分层模型（出厂 `deepseek-official` 下的
   `deepseek-v4-flash` / `deepseek-v4-pro`）必须在你的部署中可解析；否则用
   `set-model-tier` 把档位设为 `null`（会话默认模型）；
-- 每次任务一个 DSH 工作区（技能状态都在 `<工作区>/.agents/onboard-dsh/` 下）。
+- 每次任务一个 DSH 工作区（技能状态都在 `<工作区>/.agents/dsh-flotilla/` 下）。
 
 按需：
 
@@ -33,7 +33,7 @@
 克隆到你的 DSH 技能目录（通常是 `~/.dsh/skills/`）：
 
 ```powershell
-git clone https://github.com/libaie/onboard-dsh-projects.git "$env:USERPROFILE\.dsh\skills\onboard-dsh-projects"
+git clone https://github.com/libaie/dsh-flotilla.git "$env:USERPROFILE\.dsh\skills\dsh-flotilla"
 ```
 
 新开的 DSH 会话即可使用该技能（若你的 DSH 从别的目录加载技能，克隆到那里）。
@@ -43,7 +43,7 @@ git clone https://github.com/libaie/onboard-dsh-projects.git "$env:USERPROFILE\.
 在工作区的 DSH 会话里说：
 
 ```text
-使用 onboard-dsh-projects。
+使用 dsh-flotilla。
 
 indexMode: full
 ```
@@ -93,8 +93,8 @@ createControllerAgent: true
 ```markdown
 # Controller session
 
-You are the controller for the onboard-dsh-projects skill.
-Controller root: <工作区>\.agents\onboard-dsh\controller
+You are the controller for the dsh-flotilla skill.
+Controller root: <工作区>\.agents\dsh-flotilla\controller
 On startup: read the controller root AGENTS.md, run
 control-state.ps1 -Action Read and chain-store.ps1 -Action Verify, then report
 controller-ready. Route every request per SKILL.md "Request routing".
@@ -103,7 +103,7 @@ controller-ready. Route every request per SKILL.md "Request routing".
 然后在该会话里登记为中控会话，让清单和 UI 都能定位它：
 
 ```text
-使用 onboard-dsh-projects。
+使用 dsh-flotilla。
 为本会话执行 set-controller-session。
 ```
 

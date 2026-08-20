@@ -1,15 +1,15 @@
-# onboard-dsh-projects
+# dsh-flotilla
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-开源仓库：[libaie/onboard-dsh-projects](https://github.com/libaie/onboard-dsh-projects)
+开源仓库：[libaie/dsh-flotilla](https://github.com/libaie/dsh-flotilla)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![状态：可用预览版](https://img.shields.io/badge/status-preview-orange.svg)
 
 > **一个让 DeepSeek Harness 同时驾驭多个代码仓库、却不互相污染上下文的技能。**
 
-用 AI 写代码最怕什么？不是模型不够聪明，而是**上下文串了**——排查一个跨仓库的故障时，A 仓库的规则混进 B 仓库的代码，改了不该改的分支，写进了不该写的地方。`onboard-dsh-projects` 把每个仓库装进它自己的「隔间」，再派一个中控统筹全局。
+用 AI 写代码最怕什么？不是模型不够聪明，而是**上下文串了**——排查一个跨仓库的故障时，A 仓库的规则混进 B 仓库的代码，改了不该改的分支，写进了不该写的地方。`dsh-flotilla` 把每个仓库装进它自己的「隔间」，再派一个中控统筹全局。
 
 ---
 
@@ -62,7 +62,7 @@ flowchart LR
 在 DeepSeek Harness 对话中直接说：
 
 ```text
-使用 onboard-dsh-projects。
+使用 dsh-flotilla。
 
 sources:
 - source: C:\work\service-a
@@ -73,7 +73,7 @@ indexMode: full
 跨项目联调再加中控：
 
 ```text
-使用 onboard-dsh-projects。
+使用 dsh-flotilla。
 
 sources:
 - source: C:\work\service-a
@@ -116,7 +116,7 @@ createControllerAgent: true
 
 ## 开发说明
 
-- 仓库是唯一事实源。在仓库中修改，再把变更同步到你的 DSH 技能目录（例如 `~/.dsh/skills/onboard-dsh-projects/`）。
+- 仓库是唯一事实源。在仓库中修改，再把变更同步到你的 DSH 技能目录（例如 `~/.dsh/skills/dsh-flotilla/`）。
 - 运行测试：`powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run-all.ps1`（Windows PowerShell 5.1）。CI 在每次 push 和 PR 上跑同一条命令。
 - Windows 注意：测试脚本保持纯 ASCII 或带 BOM 的 UTF-8（PowerShell 5.1 会把无 BOM 的非 ASCII 文件读乱）；仓库通过 `core.autocrlf=true` 统一 CRLF。
 - 状态机变更一律走 `tools/control-state.ps1` 的 CAS 协议，禁止手改清单或 CHAIN 文件。

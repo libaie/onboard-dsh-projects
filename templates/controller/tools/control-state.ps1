@@ -649,7 +649,7 @@ switch ($Action) {
     }
     if (-not $current.Exists) { Write-Result 'verified' ([ordered]@{ currentHash=$null; missing=$true; data=$null }) 0 }
     if ($null -eq $current.Data) { Write-Result 'invalid' ([ordered]@{ reasonCode='manifest-not-json'; currentHash=$current.Hash }) 1 }
-    if ([int]$current.Data.schemaVersion -ne 1 -or [string]$current.Data.generator -cne 'onboard-dsh-projects') {
+    if ([int]$current.Data.schemaVersion -ne 1 -or [string]$current.Data.generator -cne 'dsh-flotilla') {
       Write-Result 'invalid' ([ordered]@{ reasonCode='manifest-schema-mismatch'; currentHash=$current.Hash }) 1
     }
     Write-Result 'verified' ([ordered]@{ currentHash=$current.Hash; missing=$false; data=$current.Data }) 0

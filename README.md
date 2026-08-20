@@ -1,4 +1,4 @@
-# onboard-dsh-projects
+# dsh-flotilla
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
@@ -7,7 +7,7 @@
 
 > **A DeepSeek Harness skill that lets one AI session drive many code repositories — without their contexts bleeding into each other.**
 
-The scariest failure mode in AI-assisted coding isn't a weak model — it's crossed context. Debug a bug across three repos and repo A's instructions leak into repo B's code; you edit the wrong branch, or write somewhere you shouldn't. `onboard-dsh-projects` puts every repository in its own isolated **entry agent**, then adds an optional **controller** to orchestrate the whole effort.
+The scariest failure mode in AI-assisted coding isn't a weak model — it's crossed context. Debug a bug across three repos and repo A's instructions leak into repo B's code; you edit the wrong branch, or write somewhere you shouldn't. `dsh-flotilla` puts every repository in its own isolated **entry agent**, then adds an optional **controller** to orchestrate the whole effort.
 
 ---
 
@@ -77,7 +77,7 @@ Full walkthrough from a clean machine to a running controller session:
 In a DeepSeek Harness conversation, just say:
 
 ```text
-Use onboard-dsh-projects.
+Use dsh-flotilla.
 
 sources:
 - source: C:\work\service-a
@@ -88,7 +88,7 @@ indexMode: full
 For cross-project work, add the controller:
 
 ```text
-Use onboard-dsh-projects.
+Use dsh-flotilla.
 
 sources:
 - source: C:\work\service-a
@@ -132,7 +132,7 @@ Entry agents can still use subagents and workflows internally — the two compos
 
 ## Development
 
-- The repository is the source of truth. Iterate in the repo, then sync the changed files to your DSH skills directory (for example `~/.dsh/skills/onboard-dsh-projects/`).
+- The repository is the source of truth. Iterate in the repo, then sync the changed files to your DSH skills directory (for example `~/.dsh/skills/dsh-flotilla/`).
 - Run the test suites: `powershell -NoProfile -ExecutionPolicy Bypass -File ./tests/run-all.ps1` (Windows PowerShell 5.1). CI runs the same command on every push and pull request.
 - Windows notes: keep test scripts ASCII or UTF-8 with BOM (PowerShell 5.1 misreads BOM-less non-ASCII files); the repo normalizes CRLF via `core.autocrlf=true`.
 - State-machine changes go through `tools/control-state.ps1` with the CAS protocol; never hand-edit manifests or CHAIN files.
