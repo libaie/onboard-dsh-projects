@@ -79,7 +79,8 @@ Violating a route is a protocol violation: report it, never work around it.
    agent authorizes it (or per standing instructions in MEMORY.md).
 2. Freeze contracts before cross-project dispatch — record them with
    `freeze-contract` (`{contractId, version, hash, docPath}`, append-only;
-   amendments are new versions) and cite them with `contractRef` on enqueue.
+   amendments are new versions) and cite the exact version with
+   `{contractRef, contractVersion}` on enqueue.
    A fix may be dispatched directly when root cause, scope, and acceptance
    evidence are already fixed.
 3. Run the dispatch as a `workflow` script: one phase per project lane, one
@@ -87,8 +88,9 @@ Violating a route is a protocol violation: report it, never work around it.
    paths. Model tier comes from `modelTiers`; a `null` tier means no override
    (session default). Never invent model names.
 4. Collect closed JSON results. Compute the evidence hash over the exact
-   returned result payloads. Record `record-dispatch-outcome` in the manifest
-   and append the terminal CHAIN record via `tools/chain-store.ps1 -Action Put
+   returned result payloads. Record `record-dispatch-outcome` with the active
+   dispatch's `dispatchId`, `leaseId`, and `taskSpecHash` in the manifest and
+   append the terminal CHAIN record via `tools/chain-store.ps1 -Action Put
    -ConfirmTerminal`.
 5. On deterministic failure, record the rejected mechanism in the experience
    index (`state/experience-index.json` via the dsh-state adapter) and pick the

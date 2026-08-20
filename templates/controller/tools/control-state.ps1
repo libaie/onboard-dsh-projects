@@ -31,6 +31,12 @@ function Get-Hash {
   finally { $sha.Dispose() }
 }
 
+function Get-ObjectHash {
+  param([object]$Value)
+  $json = $Value | ConvertTo-Json -Depth 12 -Compress
+  return Get-Hash ($utf8.GetBytes($json))
+}
+
 function Write-Result {
   param([string]$Status, [AllowNull()][object]$Fields, [int]$ExitCode)
   $obj = New-Object PSObject
@@ -100,7 +106,17 @@ function Test-DispatchTaskSpec {
 
 function New-Queue {
   param([string]$RepoId)
-  return [pscustomobject][ordered]@{ repoId=$RepoId; active=$null; pending=@(); lastTerminal=$null }
+  return [pscustomobject][ordered]@{ repoId=$RepoId; active=$null; pending=@(); terminalHistory=@(); lastTerminal=$null }
+}
+
+function Set-QueueTerminal {
+  param([object]$Queue, [object]$Terminal)
+  if (-not ($Queue.PSObject.Properties.Name -contains 'terminalHistory')) {
+    $Queue | Add-Member -NotePropertyName 'terminalHistory' -NotePropertyValue @()
+  }
+  # ponytail: keep prior outcomes in the manifest until CHAIN lookup becomes an indexed dependency source.
+  if ($null -ne $Queue.lastTerminal) { $Queue.terminalHistory = @($Queue.terminalHistory) + $Queue.lastTerminal }
+  $Queue.lastTerminal = $Terminal
 }
 
 function Get-QueueRef {
@@ -132,13 +148,13 @@ function Get-GoalRef {
 }
 
 function Get-ContractRef {
-  param([object]$Manifest, [string]$ContractId)
-  if (-not ($Manifest.PSObject.Properties.Name -contains 'contracts')) { return [pscustomobject]@{ Found=$false } }
-  if ($null -eq $Manifest.contracts) { return [pscustomobject]@{ Found=$false } }
+  param([object]$Manifest, [string]$ContractId, [string]$Version)
+  if (-not ($Manifest.PSObject.Properties.Name -contains 'contracts')) { return [pscustomobject]@{ Found=$false; Contract=$null } }
+  if ($null -eq $Manifest.contracts) { return [pscustomobject]@{ Found=$false; Contract=$null } }
   foreach ($ct in @($Manifest.contracts)) {
-    if ($null -ne $ct -and [string]$ct.contractId -ceq $ContractId) { return [pscustomobject]@{ Found=$true } }
+    if ($null -ne $ct -and [string]$ct.contractId -ceq $ContractId -and [string]$ct.version -ceq $Version) { return [pscustomobject]@{ Found=$true; Contract=$ct } }
   }
-  return [pscustomobject]@{ Found=$false }
+  return [pscustomobject]@{ Found=$false; Contract=$null }
 }
 
 function Test-GoalReason {
@@ -174,8 +190,13 @@ function Test-DependencyRefs {
 function Get-TerminalByDispatchId {
   param([object]$Manifest, [string]$DispatchId)
   foreach ($queue in @($Manifest.dispatchQueues)) {
-    if ($null -ne $queue.lastTerminal -and [string]$queue.lastTerminal.dispatchId -ceq $DispatchId) {
-      return [pscustomobject]@{ Found=$true; Terminal=$queue.lastTerminal }
+    $terminals = @()
+    if ($null -ne $queue.lastTerminal) { $terminals += $queue.lastTerminal }
+    if ($queue.PSObject.Properties.Name -contains 'terminalHistory') { $terminals += @($queue.terminalHistory) }
+    foreach ($terminal in $terminals) {
+      if ($null -ne $terminal -and [string]$terminal.dispatchId -ceq $DispatchId) {
+        return [pscustomobject]@{ Found=$true; Terminal=$terminal }
+      }
     }
   }
   return [pscustomobject]@{ Found=$false; Terminal=$null }
@@ -195,6 +216,7 @@ function New-DispatchItem {
     dispatchId = $null
     modelClass = [string]$Payload.modelClass
     taskSpec = $Payload.taskSpec
+    taskSpecHash = Get-ObjectHash $Payload.taskSpec
     generation = [int]$Payload.generation
     rework = [bool]$Rework
     accessMode = $accessMode
@@ -231,10 +253,18 @@ function New-DispatchItem {
     })
     $item | Add-Member -NotePropertyName 'dependencies' -NotePropertyValue $deps
   }
-  if ($Payload.PSObject.Properties.Name -contains 'contractRef' -and $null -ne $Payload.contractRef) {
+  $hasContractRef = $Payload.PSObject.Properties.Name -contains 'contractRef' -and $null -ne $Payload.contractRef
+  $hasContractVersion = $Payload.PSObject.Properties.Name -contains 'contractVersion' -and $null -ne $Payload.contractVersion
+  if ($hasContractRef -and -not $hasContractVersion) { return [pscustomobject]@{ Error = 'contract-version-required' } }
+  if ($hasContractVersion -and -not $hasContractRef) { return [pscustomobject]@{ Error = 'contract-ref-required' } }
+  if ($hasContractRef) {
     if ([string]$Payload.contractRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') { return [pscustomobject]@{ Error = 'invalid-contract-ref' } }
-    if (-not (Get-ContractRef -Manifest $Manifest -ContractId ([string]$Payload.contractRef)).Found) { return [pscustomobject]@{ Error = 'contract-not-frozen' } }
+    if ([string]$Payload.contractVersion -notmatch '^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$') { return [pscustomobject]@{ Error = 'invalid-contract-version' } }
+    $contract = Get-ContractRef -Manifest $Manifest -ContractId ([string]$Payload.contractRef) -Version ([string]$Payload.contractVersion)
+    if (-not $contract.Found) { return [pscustomobject]@{ Error = 'contract-not-frozen' } }
     $item | Add-Member -NotePropertyName 'contractRef' -NotePropertyValue ([string]$Payload.contractRef)
+    $item | Add-Member -NotePropertyName 'contractVersion' -NotePropertyValue ([string]$Payload.contractVersion)
+    $item | Add-Member -NotePropertyName 'contractHash' -NotePropertyValue ([string]$contract.Contract.hash)
   }
   if ($Payload.PSObject.Properties.Name -contains 'goalIdRef' -and $null -ne $Payload.goalIdRef) {
     if ([string]$Payload.goalIdRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { return [pscustomobject]@{ Error = 'invalid-goal-ref' } }
@@ -285,6 +315,7 @@ function Invoke-Operation {
       if ([string]::IsNullOrWhiteSpace([string]$Payload.entryAgentId) -or ([string]$Payload.entryAgentId).Length -gt 128) { return [pscustomobject]@{ Error='invalid-entry-agent-id' } }
       foreach ($binding in @($Manifest.projectBindings)) {
         if ([string]$binding.projectRoot -ieq [string]$Payload.projectRoot) { return [pscustomobject]@{ Error='project-binding-conflict' } }
+        if ([string]$binding.repoId -ceq [string]$Payload.repoId) { return [pscustomobject]@{ Error='repo-id-conflict' } }
       }
       $Manifest.projectBindings += [pscustomobject][ordered]@{
         projectRoot = [string]$Payload.projectRoot
@@ -338,7 +369,7 @@ function Invoke-Operation {
       return $Manifest
     }
     'enqueue-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'goalIdRef'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'modelClass', 'taskSpec', 'generation', 'rework') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'contractVersion', 'goalIdRef'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ([int]$Payload.generation -lt 1 -or [int]$Payload.generation -gt 1000) { return [pscustomobject]@{ Error='invalid-generation' } }
       if ($Payload.rework -isnot [bool]) { return [pscustomobject]@{ Error='invalid-rework' } }
@@ -381,6 +412,7 @@ function Invoke-Operation {
       $queueRef.Queue.active = [pscustomobject][ordered]@{
         dispatchId = [string]$head.dispatchId
         leaseId = [string]$Payload.leaseId
+        taskSpecHash = [string]$head.taskSpecHash
         phase = 'dispatched'
         startedAtUtc = ([DateTime]::UtcNow).ToString('o')
       }
@@ -399,20 +431,25 @@ function Invoke-Operation {
       return $Manifest
     }
     'record-dispatch-outcome' {
-      if (-not (Test-ClosedKeys $Payload @('repoId', 'taskSpecHash', 'resultState', 'evidenceHash', 'finishedAtUtc'))) { return $null }
+      if (-not (Test-ClosedKeys $Payload @('repoId', 'dispatchId', 'leaseId', 'taskSpecHash', 'resultState', 'evidenceHash', 'finishedAtUtc'))) { return $null }
+      if ([string]$Payload.dispatchId -notmatch '^D-[0-9]{4}$' -or [string]::IsNullOrWhiteSpace([string]$Payload.leaseId)) { return [pscustomobject]@{ Error='invalid-dispatch-identity' } }
       if ([string]$Payload.resultState -cnotin @('accepted-success', 'deterministic-failure', 'transient-failure', 'blocked', 'superseded', 'canceled')) { return [pscustomobject]@{ Error='invalid-result-state' } }
       if ([string]::IsNullOrWhiteSpace([string]$Payload.taskSpecHash) -or [string]$Payload.taskSpecHash -notmatch '^[0-9a-f]{64}$') { return [pscustomobject]@{ Error='invalid-task-spec-hash' } }
       if ([string]::IsNullOrWhiteSpace([string]$Payload.evidenceHash) -or [string]$Payload.evidenceHash -notmatch '^[0-9a-f]{64}$') { return [pscustomobject]@{ Error='invalid-evidence-hash' } }
       try { $finished = [DateTime]::Parse([string]$Payload.finishedAtUtc).ToUniversalTime() } catch { return [pscustomobject]@{ Error='invalid-finished-at' } }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
       if (-not $queueRef.Found -or $null -eq $queueRef.Queue.active) { return [pscustomobject]@{ Error='no-active-dispatch' } }
-      $queueRef.Queue.lastTerminal = [pscustomobject][ordered]@{
+      if ([string]$queueRef.Queue.active.dispatchId -cne [string]$Payload.dispatchId -or [string]$queueRef.Queue.active.leaseId -cne [string]$Payload.leaseId) { return [pscustomobject]@{ Error='active-dispatch-mismatch' } }
+      if ([string]$queueRef.Queue.active.taskSpecHash -cne [string]$Payload.taskSpecHash) { return [pscustomobject]@{ Error='task-spec-hash-mismatch' } }
+      $terminal = [pscustomobject][ordered]@{
         dispatchId = [string]$queueRef.Queue.active.dispatchId
+        leaseId = [string]$queueRef.Queue.active.leaseId
         resultState = [string]$Payload.resultState
         taskSpecHash = [string]$Payload.taskSpecHash
         evidenceHash = [string]$Payload.evidenceHash
         finishedAtUtc = $finished.ToString('o')
       }
+      Set-QueueTerminal -Queue $queueRef.Queue -Terminal $terminal
       $queueRef.Queue.active = $null
       return $Manifest
     }
@@ -420,18 +457,19 @@ function Invoke-Operation {
       if (-not (Test-ClosedKeys $Payload @('repoId'))) { return $null }
       $queueRef = Get-QueueRef -Manifest $Manifest -RepoId ([string]$Payload.repoId)
       if (-not $queueRef.Found -or $null -eq $queueRef.Queue.active) { return [pscustomobject]@{ Error='no-active-dispatch' } }
-      $queueRef.Queue.lastTerminal = [pscustomobject][ordered]@{
+      $terminal = [pscustomobject][ordered]@{
         dispatchId = [string]$queueRef.Queue.active.dispatchId
         resultState = 'canceled'
         taskSpecHash = $null
         evidenceHash = $null
         finishedAtUtc = ([DateTime]::UtcNow).ToString('o')
       }
+      Set-QueueTerminal -Queue $queueRef.Queue -Terminal $terminal
       $queueRef.Queue.active = $null
       return $Manifest
     }
     'retry-dispatch' {
-      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'goalIdRef'))) { return $null }
+      if (-not (Test-KeySet $Payload @('repoId', 'expectedDispatchId', 'modelClass', 'taskSpec', 'generation') @('accessMode', 'capabilityRefs', 'authorizationRequired', 'dependencies', 'contractRef', 'contractVersion', 'goalIdRef'))) { return $null }
       if ([string]$Payload.modelClass -cnotin @('economy', 'balanced', 'frontier')) { return [pscustomobject]@{ Error='invalid-model-class' } }
       if ($Payload.PSObject.Properties.Name -contains 'dependencies' -and -not (Test-DependencyRefs $Payload.dependencies)) { return [pscustomobject]@{ Error='invalid-dependencies' } }
       $maxLen = if ($Payload.PSObject.Properties.Name -contains 'accessMode' -and [string]$Payload.accessMode -ceq 'external-write') { 16384 } else { 8192 }
@@ -514,7 +552,7 @@ function Invoke-Operation {
         $rest = New-Object Collections.Generic.List[object]
         for ($i = 1; $i -lt @($queueRef.Queue.pending).Count; $i++) { $rest.Add($queueRef.Queue.pending[$i]) }
         $queueRef.Queue.pending = $rest.ToArray()
-        $queueRef.Queue.lastTerminal = [pscustomobject][ordered]@{
+        $terminal = [pscustomobject][ordered]@{
           dispatchId = [string]$Payload.dispatchId
           resultState = 'canceled'
           taskSpecHash = $null
@@ -522,6 +560,7 @@ function Invoke-Operation {
           authorizationDenied = $true
           finishedAtUtc = ([DateTime]::UtcNow).ToString('o')
         }
+        Set-QueueTerminal -Queue $queueRef.Queue -Terminal $terminal
       }
       return $Manifest
     }

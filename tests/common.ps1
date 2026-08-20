@@ -47,6 +47,13 @@ function Get-PendingTailId([string]$ControllerRoot, [string]$Repo) {
   return $q.pending[-1].dispatchId
 }
 
+function Complete-ActiveDispatch([string]$ControllerRoot, [string]$Repo, [string]$FinishedAtUtc, [string]$EvidenceHash = ('b' * 64)) {
+  $m = Read-Manifest $ControllerRoot
+  $active = ($m.dispatchQueues | Where-Object { $_.repoId -eq $Repo }).active
+  $payload = '{"repoId":"' + $Repo + '","dispatchId":"' + $active.dispatchId + '","leaseId":"' + $active.leaseId + '","taskSpecHash":"' + $active.taskSpecHash + '","resultState":"accepted-success","evidenceHash":"' + $EvidenceHash + '","finishedAtUtc":"' + $FinishedAtUtc + '"}'
+  return Run-Op $ControllerRoot 'record-dispatch-outcome' $payload
+}
+
 function Finish-Tests([string]$SuiteName) {
   Write-Output ("{0}: TOTAL FAILURES: {1}" -f $SuiteName, $script:TestFailures)
   if ($script:TestFailures -gt 0) { exit 1 }
